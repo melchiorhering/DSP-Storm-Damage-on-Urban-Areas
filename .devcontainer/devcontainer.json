@@ -1,0 +1,56 @@
+{
+  "name": "DSP: Fire Department Project Environment",
+  "build": { "dockerfile": "Dockerfile" },
+
+  "customizations": {
+    // "features": {
+    //   "common": {
+    //     "username": "automatic",
+    //     "uid": "automatic",
+    //     "gid": "automatic",
+    //     "installZsh": true,
+    //     "upgradePackages": true
+    //   },
+    //   "github-cli": "latest"
+    // },
+
+    "settings": {
+      "editor.tabSize": 4,
+      "editor.formatOnPaste": true,
+      "editor.guides.bracketPairs": "active",
+      "scm.defaultViewMode": "tree",
+      "liveServer.settings.NoBrowser": true,
+      "liveServer.settings.port": 5000,
+      "terminal.integrated.defaultProfile.linux": "zsh"
+    },
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "rangav.vscode-thunder-client",
+        "mkxml.vscode-filesize",
+        "VisualStudioExptTeam.vscodeintellicode",
+        "AykutSarac.jsoncrack-vscode",
+        "yzhang.markdown-all-in-one",
+        "DavidAnson.vscode-markdownlint",
+        "christian-kohler.path-intellisense",
+        "ms-python.python",
+        "donjayamanne.python-extension-pack",
+        "charliermarsh.ruff",
+        "richie5um2.vscode-sort-json",
+        "redhat.vscode-yaml",
+        "visualstudioexptteam.vscodeintellicode",
+        "visualstudiotxptteam.vscodeintellicode-completions",
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "christian-kohler.npm-intellisense",
+        "ritwickdey.liveserver",
+        "ms-vscode.wordcount",
+        "streetsidesoftware.code-spell-checker",
+        "redhat.fabric8-analytics",
+        "bierner.github-markdown-preview"
+      ]
+    }
+  },
+
+  "forwardPorts": [3000]
+}
