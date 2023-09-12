@@ -12,5 +12,5 @@ RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/inst
 
 RUN usermod -s $(which zsh) $(whoami)
 
-RUN pip install dagster dagster-webserver streamlit polars ruff
+RUN pip install dagster dagster-webserver streamlit polars ruff plotly
 
