@@ -3,6 +3,8 @@ Name: dsp-dagster
 Version: 0.0.0
 Requires-Dist: dagster
 Requires-Dist: dagster-cloud
+Requires-Dist: dagster-duckdb-polars
+Requires-Dist: plotly
 Provides-Extra: dev
 Requires-Dist: dagster-webserver; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
