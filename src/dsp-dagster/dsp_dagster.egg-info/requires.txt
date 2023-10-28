@@ -1,8 +1,0 @@
-dagster
-dagster-cloud
-dagster-duckdb-polars
-plotly
-
-[dev]
-dagster-webserver
-pytest

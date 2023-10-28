@@ -4,3 +4,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.dagster]
 module_name = "dsp_dagster"
+# Additional options for setuptools can be specified here

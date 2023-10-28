@@ -1,8 +1,22 @@
 from setuptools import find_packages, setup
 
+
 setup(
-    name="dsp_dagster",
-    packages=find_packages(exclude=["dsp_dagster_tests"]),
-    install_requires=["dagster", "dagster-cloud", "dagster-duckdb-polars", "plotly"],
+    name="dsp-dagster",
+    version="0.1.0",
+    author=["Stijn Hering", "etc", "etc"],
+    description="TO-DO",
+    packages=find_packages(
+        exclude=["tests"]
+    ),  # Include all Python packages in the project
+    install_requires=[
+        "dagster",
+        "dagster-duckdb-polars",
+        "dagster_duckdb",
+        "Faker==18.4.0",
+        "matplotlib",
+        "pandas",
+        "requests",
+    ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )
