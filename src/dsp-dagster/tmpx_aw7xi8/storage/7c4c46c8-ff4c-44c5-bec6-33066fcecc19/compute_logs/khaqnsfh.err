@@ -1,0 +1,6 @@
+[32m2023-10-29 18:08:19 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 7c4c46c8-ff4c-44c5-bec6-33066fcecc19 - 15704 - LOGS_CAPTURED - Started capturing logs in process (pid: 15704).
+[32m2023-10-29 18:08:19 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 7c4c46c8-ff4c-44c5-bec6-33066fcecc19 - 15704 - storm_data_deployments - STEP_START - Started execution of step "storm_data_deployments".
+[32m2023-10-29 18:08:19 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 7c4c46c8-ff4c-44c5-bec6-33066fcecc19 - 15704 - storm_data_deployments - STEP_OUTPUT - Yielded output "result" of type "DataFrame". (Type check passed).
+[32m2023-10-29 18:08:19 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 7c4c46c8-ff4c-44c5-bec6-33066fcecc19 - 15704 - storm_data_deployments - ASSET_MATERIALIZATION - Materialized value storm_data_deployments.
+[32m2023-10-29 18:08:19 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 7c4c46c8-ff4c-44c5-bec6-33066fcecc19 - 15704 - storm_data_deployments - HANDLED_OUTPUT - Handled output "result" using IO manager "database_io_manager"
+[32m2023-10-29 18:08:19 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 7c4c46c8-ff4c-44c5-bec6-33066fcecc19 - 15704 - storm_data_deployments - STEP_SUCCESS - Finished execution of step "storm_data_deployments" in 223ms.

@@ -14,9 +14,7 @@ setup(
         "dagster-duckdb-polars",
         "dagster_duckdb",
         "Faker==18.4.0",
-        "matplotlib",
-        "pandas",
-        "requests",
+        "xlsx2csv",
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )

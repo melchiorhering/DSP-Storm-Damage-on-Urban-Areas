@@ -1,4 +1,4 @@
-FROM python:latest
+FROM python:3.10-bullseye
 
 # Update and upgrade the package list
 RUN apt-get update && apt-get upgrade -y
@@ -12,5 +12,10 @@ RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/inst
 
 RUN usermod -s $(which zsh) $(whoami)
 
-RUN pip install dagster dagster-webserver streamlit polars ruff plotly
+RUN python -m ensurepip --upgrade
 
+RUN pip install --upgrade pip
+
+RUN pip install streamlit ruff plotly pylint[spelling] Faker xlsx2csv
+
+RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb-polars openpyxl

@@ -1,0 +1,41 @@
+[32m2023-10-29 18:03:31 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 5eb8942b-09e0-404d-a7ee-c51dff1faafd - 1328 - LOGS_CAPTURED - Started capturing logs in process (pid: 1328).
+[32m2023-10-29 18:03:31 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 5eb8942b-09e0-404d-a7ee-c51dff1faafd - 1328 - storm_data_large - STEP_START - Started execution of step "storm_data_large".
+[32m2023-10-29 18:03:32 +0000[0m - dagster - [34mERROR[0m - [31m__ASSET_JOB - 5eb8942b-09e0-404d-a7ee-c51dff1faafd - 1328 - storm_data_large - STEP_FAILURE - Execution of step "storm_data_large" failed.
+
+dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op "storm_data_large"::
+
+polars.exceptions.ComputeError: Could not parse `1/18/2018` as dtype `date` at column 'Date' (column number 2).
+The current offset in the file is 560043 bytes.
+
+You might want to try:
+- increasing `infer_schema_length` (e.g. `infer_schema_length=10000`),
+- specifying correct dtype with the `dtypes` argument
+- setting `ignore_errors` to `True`,
+- adding `1/18/2018` to the `null_values` list.
+
+Stack Trace:
+  File "/usr/local/lib/python3.10/site-packages/dagster/_core/execution/plan/utils.py", line 54, in op_execution_error_boundary
+    yield
+  File "/usr/local/lib/python3.10/site-packages/dagster/_utils/__init__.py", line 461, in iterate_with_context
+    next_output = next(iterator)
+  File "/usr/local/lib/python3.10/site-packages/dagster/_core/execution/plan/compute_generator.py", line 131, in _coerce_op_compute_fn_to_iterator
+    result = invoke_compute_fn(
+  File "/usr/local/lib/python3.10/site-packages/dagster/_core/execution/plan/compute_generator.py", line 125, in invoke_compute_fn
+    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)
+  File "/workspaces/DSP/src/dsp-dagster/dsp_dagster/assets/fire_department_data.py", line 25, in storm_data_large
+    df = pl.read_excel("./data/Storm_Data_Large.xlsx", read_csv_options={"try_parse_dates": True})
+  File "/usr/local/lib/python3.10/site-packages/polars/io/spreadsheet/functions.py", line 244, in read_excel
+    return _read_spreadsheet(
+  File "/usr/local/lib/python3.10/site-packages/polars/io/spreadsheet/functions.py", line 445, in _read_spreadsheet
+    parsed_sheets = {
+  File "/usr/local/lib/python3.10/site-packages/polars/io/spreadsheet/functions.py", line 446, in <dictcomp>
+    name: reader_fn(
+  File "/usr/local/lib/python3.10/site-packages/polars/io/spreadsheet/functions.py", line 778, in _read_spreadsheet_xlsx2csv
+    return _csv_buffer_to_frame(
+  File "/usr/local/lib/python3.10/site-packages/polars/io/spreadsheet/functions.py", line 573, in _csv_buffer_to_frame
+    df = read_csv(
+  File "/usr/local/lib/python3.10/site-packages/polars/io/csv/functions.py", line 366, in read_csv
+    df = pl.DataFrame._read_csv(
+  File "/usr/local/lib/python3.10/site-packages/polars/dataframe/frame.py", line 772, in _read_csv
+    self._df = PyDataFrame.read_csv(
+[0m

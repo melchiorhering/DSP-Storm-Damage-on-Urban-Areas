@@ -1,7 +1,10 @@
 {
   "name": "DSP: Fire Department Project Environment",
   "build": { "dockerfile": "Dockerfile" },
-
+  // "mounts": [
+  //       "source=profile,target=/root,type=volume",
+  //       "target=/root/.vscode-server,type=volume"
+  //   ],
   "customizations": {
     // "features": {
     //   "common": {
@@ -15,24 +18,45 @@
     // },
 
     "settings": {
+      "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      },
+      "[python]": {
+        "editor.codeActionsOnSave": {
+          "source.fixAll": true
+        },
+        "editor.defaultFormatter": "ms-python.black-formatter"
+      },
       "editor.tabSize": 4,
-      "editor.formatOnPaste": true,
+      "editor.formatOnSave": true,
       "editor.guides.bracketPairs": "active",
       "scm.defaultViewMode": "tree",
       "liveServer.settings.NoBrowser": true,
       "liveServer.settings.port": 5000,
-      "terminal.integrated.defaultProfile.linux": "zsh"
+      "terminal.integrated.defaultProfile.linux": "zsh",
+      "git.autofetch": true,
+      "git.confirmSync": false,
+      "git.ignoreMissingGitWarning": true,
+      "prettier.bracketSameLine": true,
+      "prettier.endOfLine": "auto",
+      "python.analysis.autoImportCompletions": true,
+      "python.languageServer": "Pylance",
+      "python.terminal.activateEnvInCurrentTerminal": true,
+      "python.linting.pylintArgs": ["--disable=W0621"]
     },
     "vscode": {
       "extensions": [
-        "ms-azuretools.vscode-docker",
+        // "ms-azuretools.vscode-docker",
+        "tamasfe.even-better-toml",
         "rangav.vscode-thunder-client",
         "mkxml.vscode-filesize",
         "VisualStudioExptTeam.vscodeintellicode",
+        "ms-python.pylint",
         "AykutSarac.jsoncrack-vscode",
         "yzhang.markdown-all-in-one",
         "DavidAnson.vscode-markdownlint",
         "christian-kohler.path-intellisense",
+        "ms-python.black-formatter",
         "ms-python.python",
         "donjayamanne.python-extension-pack",
         "charliermarsh.ruff",
@@ -52,5 +76,5 @@
     }
   },
 
-  "forwardPorts": [3000]
+  "forwardPorts": [4000]
 }
