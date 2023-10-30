@@ -1,5 +1,4 @@
 from datetime import datetime
-import os
 from typing import Optional
 from dagster import asset, Config, get_dagster_logger
 import polars as pl
@@ -13,7 +12,16 @@ def datetime_now() -> int:
 
 
 class KNMIAssetConfig(Config):
-    base_url: str = os.getenv("KNMI_BASE_URL")
+    knmi_endpoint: str = Field(
+        title="KNMI-Endpoint",
+        description="The KNMI API endpoint being used, defaults to `uurgegevens`-API",
+        examples=[
+            "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens",
+            "https://www.daggegevens.knmi.nl/klimatologie/daggegevens",
+            "https://www.daggegevens.knmi.nl/klimatologie/monv/reeksen",
+        ],
+        default="https://www.daggegevens.knmi.nl/klimatologie/uurgegevens",
+    )
     start: int = Field(
         title="start",
         description="param field `start` that is the same as the complete start-date in the format: YYYYMMDDHH",
@@ -86,7 +94,7 @@ def get_knmi_uurgegevens(config: KNMIAssetConfig) -> pl.DataFrame:
         "stns": config.stns,
         "fmt": config.fmt,
     }
-    response = requests.request("GET", config.base_url, params=params, timeout=60)
+    response = requests.request("GET", config.knmi_endpoint, params=params, timeout=60)
 
     if response.status_code == 200:
         data = response.json()
