@@ -51,10 +51,10 @@ class KNMIAssetConfig(Config):
 
 
 @asset(
-    name="knmi_uurgegevens",
+    name="knmi_weather_data",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
-def get_knmi_uurgegevens(config: KNMIAssetConfig) -> pl.DataFrame:
+def get_knmi_weather_data(config: KNMIAssetConfig) -> pl.DataFrame:
     """
     Based from these KNMI API docs: https://www.knmi.nl/kennis-en-datacentrum/achtergrond/data-ophalen-vanuit-een-script
 
