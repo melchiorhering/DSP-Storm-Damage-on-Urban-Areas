@@ -1,5 +1,0 @@
-load_from:
-  - python_file:
-      relative_path: ./custom_io_manager.py # Path to your custom IO manager file
-  - python_module:
-      package_name: dagster_duckdb_polars

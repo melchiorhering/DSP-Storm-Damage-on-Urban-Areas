@@ -1,6 +1,12 @@
 from datetime import datetime
 from typing import Optional
-from dagster import asset, Config, get_dagster_logger
+from dagster import (
+    asset,
+    Config,
+    get_dagster_logger,
+    AssetExecutionContext,
+    MetadataValue,
+)
 import polars as pl
 import requests
 
@@ -54,7 +60,9 @@ class KNMIAssetConfig(Config):
     name="knmi_weather_data",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
-def get_knmi_weather_data(config: KNMIAssetConfig) -> pl.DataFrame:
+def get_knmi_weather_data(
+    context: AssetExecutionContext, config: KNMIAssetConfig
+) -> pl.DataFrame:
     """
     Based from these KNMI API docs: https://www.knmi.nl/kennis-en-datacentrum/achtergrond/data-ophalen-vanuit-een-script
 
@@ -99,6 +107,13 @@ def get_knmi_weather_data(config: KNMIAssetConfig) -> pl.DataFrame:
     if response.status_code == 200:
         data = response.json()
         df = pl.from_dicts(data)
+        context.add_output_metadata(
+            metadata={
+                "num_records": len(df),  # Metadata can be any key-value pair
+                "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+                # The `MetadataValue` class has useful static methods to build Metadata
+            }
+        )
         return df
 
     else:

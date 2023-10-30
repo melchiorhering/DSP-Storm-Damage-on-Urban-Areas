@@ -1,0 +1,6 @@
+[32m2023-10-30 19:30:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 564ef30b-9ca6-4a1d-b1ed-9adcaa15dfd1 - 8156 - LOGS_CAPTURED - Started capturing logs in process (pid: 8156).
+[32m2023-10-30 19:30:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 564ef30b-9ca6-4a1d-b1ed-9adcaa15dfd1 - 8156 - fire_department_stations - STEP_START - Started execution of step "fire_department_stations".
+[32m2023-10-30 19:30:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 564ef30b-9ca6-4a1d-b1ed-9adcaa15dfd1 - 8156 - fire_department_stations - STEP_OUTPUT - Yielded output "result" of type "DataFrame". (Type check passed).
+[32m2023-10-30 19:30:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 564ef30b-9ca6-4a1d-b1ed-9adcaa15dfd1 - 8156 - fire_department_stations - ASSET_MATERIALIZATION - Materialized value fire_department_stations.
+[32m2023-10-30 19:30:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 564ef30b-9ca6-4a1d-b1ed-9adcaa15dfd1 - 8156 - fire_department_stations - HANDLED_OUTPUT - Handled output "result" using IO manager "database_io_manager"
+[32m2023-10-30 19:30:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - 564ef30b-9ca6-4a1d-b1ed-9adcaa15dfd1 - 8156 - fire_department_stations - STEP_SUCCESS - Finished execution of step "fire_department_stations" in 806ms.

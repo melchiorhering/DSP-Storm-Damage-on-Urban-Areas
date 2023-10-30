@@ -17,7 +17,7 @@ data_assets = load_assets_from_package_module(
 )
 
 local_io_manager = FilesystemIOManager(
-    base_dir="data/file_system_IO",  # Path is built relative to where `dagster dev` is run
+    base_dir="result/local/",  # Path is built relative to where `dagster dev` is run
 )
 
 # Insert this section anywhere above your `defs = Definitions(...)`
