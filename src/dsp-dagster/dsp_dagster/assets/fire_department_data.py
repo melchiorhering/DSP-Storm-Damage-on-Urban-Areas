@@ -2,8 +2,6 @@ from dagster import (
     asset,
 )
 import polars as pl
-import pandas as pd
-
 
 @asset(
     name="storm_data_small",
