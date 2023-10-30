@@ -1,2 +1,5 @@
 /data
 tmp*/
+# For now not persisting
+*.db
+storage/*
