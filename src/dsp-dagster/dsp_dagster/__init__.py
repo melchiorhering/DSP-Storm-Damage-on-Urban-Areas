@@ -1,10 +1,9 @@
-
+import os
 from dagster import (
     Definitions,
     load_assets_from_package_module,
     FilesystemIOManager,  # Update the imports at the top of the file to also include this
 )
-import dagster
 from dagster_duckdb_polars import DuckDBPolarsIOManager
 
 

@@ -10,17 +10,9 @@
     "settings": {
       "files.insertFinalNewline": true,
       "files.trimTrailingWhitespace": true,
-      // "python.defaultInterpreterPath": "./.venv/bin/python",
-      "python.formatting.provider": "black",
-      // "python.formatting.blackArgs": ["--no-color"],
-      "python.testing.pytestArgs": ["tests"],
       "python.testing.unittestEnabled": false,
-      "python.testing.pytestEnabled": true,
       "python.testing.autoTestDiscoverOnSaveEnabled": true,
       "python.analysis.indexing": true,
-      "editor.codeActionsOnSave": {
-        "source.organizeImports": true
-      },
       "rewrap.wrappingColumn": 88,
       "[json]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -28,11 +20,11 @@
       "[python]": {
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-          "source.fixAll": true
+          "source.fixAll": true,
+          "source.organizeImports.ruff": true
         },
         "editor.defaultFormatter": "ms-python.black-formatter"
       },
-
       "scm.defaultViewMode": "tree",
       "liveServer.settings.NoBrowser": true,
       "liveServer.settings.port": 5000,
@@ -43,24 +35,14 @@
       "prettier.bracketSameLine": true,
       "prettier.endOfLine": "auto",
       "python.analysis.autoImportCompletions": true,
-      "python.languageServer": "Pylance",
       "python.terminal.activateEnvInCurrentTerminal": true,
-      "python.linting.pylintArgs": ["--disable=W0621"],
       "editor.tabSize": 4,
-      "editor.guides.bracketPairs": "active",
-      "editor.acceptSuggestionOnEnter": "on",
-      "editor.accessibilitySupport": "off",
-      "editor.autoIndent": "keep",
       "editor.formatOnSave": true,
       "editor.largeFileOptimizations": false,
       "editor.linkedEditing": true,
       "editor.minimap.enabled": false,
       "editor.snippetSuggestions": "top",
-      "editor.suggest.preview": true,
-      "editor.suggest.showMethods": true,
-      "editor.suggestSelection": "first",
-      "editor.unicodeHighlight.ambiguousCharacters": false,
-      "editor.unicodeHighlight.invisibleCharacters": false
+      "editor.suggest.preview": true
     },
     "vscode": {
       "extensions": [
