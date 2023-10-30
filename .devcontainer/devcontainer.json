@@ -1,29 +1,35 @@
 {
   "name": "DSP: Fire Department Project Environment",
   "build": { "dockerfile": "Dockerfile" },
-  // "mounts": [
-  //       "source=profile,target=/root,type=volume",
-  //       "target=/root/.vscode-server,type=volume"
-  //   ],
   "customizations": {
     "git.branchProtection": ["main", "master"],
     "settings": {
+      "ruff.path": "/usr/local/bin/ruff",
+      "ruff.lint.args": ["--config=src/dsp-dagster/pyproject.toml"],
+      "ruff.organizeImports": true,
       "files.insertFinalNewline": true,
       "files.trimTrailingWhitespace": true,
+      "files.autoSave": "onFocusChange",
       "python.testing.unittestEnabled": false,
       "python.testing.autoTestDiscoverOnSaveEnabled": true,
       "python.analysis.indexing": true,
+      "python.analysis.autoImportCompletions": true,
+      "python.terminal.activateEnvInCurrentTerminal": true,
+      "python.defaultInterpreterPath": "/usr/local/bin/python",
       "rewrap.wrappingColumn": 88,
       "[json]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
       },
       "[python]": {
-        "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
           "source.fixAll": true,
           "source.organizeImports.ruff": true
         },
         "editor.defaultFormatter": "ms-python.black-formatter"
+      },
+      "editor.codeActionsOnSave": {
+        "source.removeUnusedImports": true,
+        "source.organizeImports": true
       },
       "scm.defaultViewMode": "tree",
       "liveServer.settings.NoBrowser": true,
@@ -34,14 +40,9 @@
       "git.ignoreMissingGitWarning": true,
       "prettier.bracketSameLine": true,
       "prettier.endOfLine": "auto",
-      "python.analysis.autoImportCompletions": true,
-      "python.terminal.activateEnvInCurrentTerminal": true,
       "editor.tabSize": 4,
       "editor.formatOnSave": true,
       "editor.largeFileOptimizations": false,
-      "editor.linkedEditing": true,
-      "editor.minimap.enabled": false,
-      "editor.snippetSuggestions": "top",
       "editor.suggest.preview": true
     },
     "vscode": {
@@ -71,10 +72,10 @@
         "ms-vscode.wordcount",
         "streetsidesoftware.code-spell-checker",
         "redhat.fabric8-analytics",
-        "bierner.github-markdown-preview"
+        "bierner.github-markdown-preview",
+        "ms-python.isort"
       ]
     }
-  },
-
-  "forwardPorts": [4000]
+  }
+  // "forwardPorts": [4000]
 }
