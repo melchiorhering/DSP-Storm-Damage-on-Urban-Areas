@@ -1,5 +1,5 @@
-/data
 tmp*/
 # For now not persisting
 *.db
-storage/*
+src/dsp-dagster/storage/*
+src/dsp-dagster/data/*
