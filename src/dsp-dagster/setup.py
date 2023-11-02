@@ -15,6 +15,8 @@ setup(
         "dagster_duckdb",
         "Faker==18.4.0",
         "xlsx2csv",
+        "asyncio",
+        "aiohttp",
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )
