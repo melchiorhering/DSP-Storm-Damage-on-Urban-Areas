@@ -1,0 +1,66 @@
+version: "3.8"
+networks:
+  default:
+    driver: bridge
+  servers_default:
+    external: true
+services:
+  dsp-dagster:
+    build:
+      context: .
+      dockerfile: ../src/dsp-dagster/Dockerfile
+    working_dir: /home/workspaces/DSP-compose/dsp-dagster/
+    stdin_open: true
+    tty: true
+    volumes:
+      #   # Update this to wherever you want VS Code to mount the folder of your project
+      - ../src/dsp-dagster:/home/workspaces/DSP-compose/dsp-dagster/:cached
+    environment:
+      - DAGSTER_HOME=/home/workspaces/DSP-compose/dsp-dagster/
+    entrypoint: dagster dev -h 0.0.0.0 -p 3000
+    ports:
+      - 3000:3000
+
+  dsp-streamlit:
+    build:
+      context: .
+      dockerfile: ../src/dsp-streamlit/Dockerfile
+    working_dir: /home/workspaces/DSP-compose/dsp-streamlit/
+    stdin_open: true
+    tty: true
+    volumes:
+      #   # Update this to wherever you want VS Code to mount the folder of your project
+      - ../src/dsp-streamlit:/home/workspaces/DSP-compose/dsp-streamlit/:cached
+    entrypoint: streamlit run Home.py
+    ports:
+      - 8501:8501
+  dsp-mlflow:
+    build:
+      context: .
+      dockerfile: ../src/dsp-mlflow/Dockerfile
+    working_dir: /home/workspaces/DSP-compose/dsp-mlflow
+    stdin_open: true
+    tty: true
+    volumes:
+      - ../src/dsp-mlflow:/home/workspaces/DSP-compose/dsp-mlflow/:cached
+    # entrypoint: mlflow server --backend-store-uri  file:///mlruns --no-serve-artifacts -h 0.0.0.0 -p 5000
+    entrypoint: mlflow server --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns -h 0.0.0.0 -p 5000
+    ports:
+      - 5000:5000
+
+  workspace:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ..:/home/workspaces/DSP-compose/:cached
+      - ~/.zshrc:/home/.zshrc
+      - ~/.oh-my-zsh/:/home/.oh-my-zsh/
+    working_dir: /home/workspaces/DSP-compose/
+    stdin_open: true
+    tty: true
+    depends_on:
+      - dsp-streamlit
+      - dsp-dagster
+      - dsp-mlflow

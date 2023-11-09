@@ -1,6 +1,28 @@
 {
-  "name": "DSP: Fire Department Project Environment",
-  "build": { "dockerfile": "Dockerfile" },
+  // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+  // https://github.com/microsoft/vscode-dev-containers/tree/v0.217.4/containers/go
+
+  "name": "DSP: Workspace",
+  "service": "workspace",
+  // "workspaceMount": "source=${localWorkspaceFolder},target=/workspace, type=bind, consistency=cached",
+  // "workspaceFolder": "${localWorkspaceFolder}",
+  "workspaceFolder": "/home/workspaces/DSP-compose",
+  "forwardPorts": ["3000:3000", "8501:8501", "5000:5000"],
+  "shutdownAction": "stopCompose",
+
+  // "workspaceFolder": "/home/vscode/workspaces/DSP-comps/",
+  "dockerComposeFile": ["docker-compose.yaml"],
+
+  // "appPort": [3000, "8921:5000"],
+  // Add the IDs of extensions you want installed when the container is created.
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  // "postCreateCommand": "ls -alh",
+  // Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
+  // "remoteUser": "vscode",
+  // "overrideCommand": true,
+
   "customizations": {
     "git.branchProtection": ["main", "master"],
     "settings": {
@@ -32,8 +54,8 @@
         "source.organizeImports": true
       },
       "scm.defaultViewMode": "tree",
-      "liveServer.settings.NoBrowser": true,
-      "liveServer.settings.port": 5000,
+      // "liveServer.settings.NoBrowser": true,
+      // "liveServer.settings.port": 5000,
       "terminal.integrated.defaultProfile.linux": "zsh",
       "git.autofetch": true,
       "git.confirmSync": false,
@@ -47,9 +69,8 @@
     },
     "vscode": {
       "extensions": [
-        // "ms-azuretools.vscode-docker",
+        "ms-azuretools.vscode-docker",
         "tamasfe.even-better-toml",
-        "rangav.vscode-thunder-client",
         "mkxml.vscode-filesize",
         "VisualStudioExptTeam.vscodeintellicode",
         "ms-python.pylint",
@@ -77,5 +98,4 @@
       ]
     }
   }
-  // "forwardPorts": [4000]
 }

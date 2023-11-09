@@ -13,10 +13,13 @@ setup(
         "dagster",
         "dagster-duckdb-polars",
         "dagster_duckdb",
+        "dagster-mlflow",
+        "openpyxl",
         "Faker==18.4.0",
         "xlsx2csv",
         "asyncio",
         "aiohttp",
+        "httpx",
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )

@@ -1,10 +1,11 @@
+# MAIN DSP IMAGE
 FROM python:3.10-bullseye
 
 # Update and upgrade the package list
 RUN apt-get update && apt-get upgrade -y
 
 # Install necessary packages (git, zsh, and curl)
-RUN apt-get -y install git zsh curl
+RUN apt-get -y install git zsh curl sqlite3
 
 # Install oh-my-zsh and the dieter theme
 RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" && \
@@ -14,8 +15,10 @@ RUN usermod -s $(which zsh) $(whoami)
 
 RUN python -m ensurepip --upgrade
 
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip ruff pylint[spelling]
 
-RUN pip install streamlit ruff plotly pylint[spelling] Faker xlsx2csv
+# Streamlit specific
+RUN pip install streamlit plotly Faker
 
-RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb-polars openpyxl
+# Dagster specific
+RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb-polars xlsx2csv openpyxl asyncio httpx

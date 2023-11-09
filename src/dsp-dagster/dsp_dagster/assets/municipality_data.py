@@ -84,7 +84,7 @@ async def get_gemeente_ams_tree_data(
     logger.info(f"Using {params}")
 
     async with httpx.AsyncClient() as session:
-        response = await session.get(complete_endpoint, params=params, timeout=60)
+        response = await session.get(complete_endpoint, params=params, timeout=180)
         if response.status_code == 200:
             logger.info(response.headers)
             current_page = int(response.headers["x-pagination-page"])
