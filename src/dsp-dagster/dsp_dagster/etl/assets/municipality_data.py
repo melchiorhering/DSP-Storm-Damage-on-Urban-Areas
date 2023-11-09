@@ -48,7 +48,7 @@ async def fetch_data(
     session, logger, complete_endpoint, params, current_page, total_pages
 ):
     params["page"] = current_page
-    response = await session.get(complete_endpoint, params=params, timeout=60)
+    response = await session.get(complete_endpoint, params=params, timeout=180)
     if response.status_code == 200:
         logger.info(f"[PAGE] {current_page} | {total_pages} [RETRIEVED]")
 

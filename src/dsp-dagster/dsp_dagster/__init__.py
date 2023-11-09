@@ -6,24 +6,30 @@ from dagster import (
     FilesystemIOManager,  # Update the imports at the top of the file to also include this
 )
 from dagster_duckdb_polars import DuckDBPolarsIOManager
-from dsp_dagster import assets
+from dsp_dagster.etl import assets
+from dsp_dagster.etl import transformations
 
 # VARIABLES
 # ======================================================
 database_name = os.getenv("DATABASE_NAME")
 
 
-# ASSET MODULES
+# Dagster Assets/Nodes
 # ======================================================
 data_assets = load_assets_from_package_module(
     assets,
     group_name="data_assets",
 )
+transformation_assets = load_assets_from_package_module(
+    transformations,
+    group_name="transformation_assets",
+)
 
 
 # JOBS
 # ======================================================
-data_extraction = define_asset_job("data_extraction", selection=data_assets)
+data_extract = define_asset_job("data_extract", selection=data_assets)
+data_transform = define_asset_job("data_transform", selection=transformation_assets)
 
 # IO MANAGERS
 # ======================================================
@@ -37,7 +43,7 @@ database_io_manager = DuckDBPolarsIOManager(database=database_name)
 # Update your Definitions
 defs = Definitions(
     assets=data_assets,
-    jobs=[data_extraction],
+    jobs=[data_extract],
     resources={
         "local_io_manager": local_io_manager,
         "database_io_manager": database_io_manager,  # Define the I/O manager here
