@@ -1,4 +1,4 @@
-<img src="https://images.unsplash.com/photo-1624692630016-78ac2e23f6f0?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=3600" alt="DSP project banner" title="Storm Damage on Urban Areas - Fire Department Amsterdam-Amstelland" width="1600" height="400" style="object-fit: contain" />
+<img src="https://images.unsplash.com/photo-1624692630016-78ac2e23f6f0?ixlib=rb-4.0.3&q=85&fm=jpg&crop=entropy&cs=srgb&w=3600" alt="DSP project banner" title="Storm Damage on Urban Areas - Fire Department Amsterdam-Amstelland" style="object-fit: cover; display: block; margin-left: auto; margin-right: auto; width: 50%" />
 
 # Storm Damage on Urban Areas - Fire Department Amsterdam-Amstelland
 
