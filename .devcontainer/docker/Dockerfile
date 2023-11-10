@@ -15,7 +15,7 @@ RUN usermod -s $(which zsh) $(whoami)
 
 RUN python -m ensurepip --upgrade
 
-RUN pip install --upgrade pip ruff pylint[spelling]
+RUN pip install --upgrade pip ruff pylint[spelling] jupyter ipykernel
 
 # Streamlit specific
 RUN pip install streamlit plotly Faker

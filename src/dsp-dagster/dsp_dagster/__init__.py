@@ -3,7 +3,7 @@ from dagster import Definitions
 from dagster_duckdb_polars import DuckDBPolarsIOManager
 from .assets import extraction_assets, transformation_assets, model_assets
 from .resources import LOCAL_RESOURCE
-from .jobs import extract_data_from_sources, transform_data, run_models
+from .jobs import extract_data, transform_data, run_models
 
 
 all_assets = [
@@ -18,7 +18,7 @@ deployment_name = os.environ.get("DAGSTER_DEPLOYMENT", "local")
 defs = Definitions(
     assets=all_assets,
     resources=resources_by_deployment_name[deployment_name],
-    jobs=[extract_data_from_sources, transform_data, run_models]
+    jobs=[extract_data, transform_data, run_models]
     # schedules=[core_assets_schedule],
     # sensors=all_sensors,
 )

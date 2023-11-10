@@ -67,11 +67,20 @@ async def fetch_data(
 
 @asset(
     name="gemeente_ams_tree_data",
+    # key_prefix="api_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 async def get_gemeente_ams_tree_data(
     context: AssetExecutionContext, config: GA_Bomen
 ) -> pl.DataFrame:
+    """
+    Function that retrieves tree data from the Gemeente Amsterdam API
+
+    :param AssetExecutionContext context: Dagster context
+    :param GA_Bomen config: Parmas for the `Bomen` API
+    :raises Failure: Failure when the async function fails
+    :return pl.DataFrame: Amsterdam Trees dataset
+    """
     logger = get_dagster_logger()
     complete_endpoint = config.base_url + config.bomen_endpoint
 
@@ -125,7 +134,8 @@ async def get_gemeente_ams_tree_data(
     df = pl.from_dicts(final_data)
     context.add_output_metadata(
         metadata={
-            "num_records": len(df),  # Metadata can be any key-value pair
+            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }

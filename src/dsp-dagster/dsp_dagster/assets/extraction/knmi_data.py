@@ -3,13 +3,11 @@ from typing import Optional
 from dagster import (
     asset,
     Config,
-    get_dagster_logger,
     AssetExecutionContext,
     MetadataValue,
 )
 import polars as pl
 import requests
-
 from pydantic import Field
 
 
@@ -58,6 +56,7 @@ class KNMIAssetConfig(Config):
 
 @asset(
     name="knmi_weather_data",
+    # key_prefix="api_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 def get_knmi_weather_data(
@@ -91,10 +90,8 @@ def get_knmi_weather_data(
     `fmt`:
         Standaard is de output van het script in CSV-formaat, met fmt=xml is de output in XML-formaat, met fmt=json in JSON-formaat.
 
-    :return pl.DataFrame: DataFrame with KNMI data that will be stored in DuckDB database
+    :return pl.DataFrame: DataFrame with KNMI data based on range
     """
-    logger = get_dagster_logger()
-
     params = {
         "start": config.start,
         "end": config.end,
@@ -109,9 +106,12 @@ def get_knmi_weather_data(
         df = pl.from_dicts(data)
         context.add_output_metadata(
             metadata={
-                "num_records": len(df),  # Metadata can be any key-value pair
+                "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+                "number_of_columns": MetadataValue.int(len(df.columns)),
                 "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
                 # The `MetadataValue` class has useful static methods to build Metadata
             }
         )
         return df
+
+    response.raise_for_status()

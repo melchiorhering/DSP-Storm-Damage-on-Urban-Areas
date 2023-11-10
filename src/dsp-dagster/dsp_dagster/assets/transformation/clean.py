@@ -1,31 +1,34 @@
-from dagster import AssetExecutionContext, asset, AssetIn, MetadataValue
-
+from dagster import (
+    AssetExecutionContext,
+    AssetIn,
+    asset,
+    MetadataValue,
+)
 import polars as pl
-
-# knmi_weather_data = SourceAsset(key=AssetKey("knmi_weather_data"))
 
 
 @asset(
-    name="set_dtypes",
-    ins={"knmi_weather_data": AssetIn("knmi_weather_data")},
-    io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
+    name="adjust_knmi_data_types",
+    ins={"knmi_weather_data": AssetIn(key="knmi_weather_data")},
+    io_manager_key="database_io_manager",
+    description="Transform str (datetime) to date format",
 )
-def storm_data_small(
+def adjust_knmi_data_types(
     context: AssetExecutionContext, knmi_weather_data: pl.DataFrame
 ) -> pl.DataFrame:
     """
-    Loads local Storm data (small dataset)
-
-    :return pl.DataFrame: Small Storm Dataset
+    Set the data types of the KNMI data
+    :return pl.DataFrame: with adjusted data-types
     """
 
-    df = knmi_weather_data.with_columns(pl.col("date").str.to_datetime("%+"))
+    df = knmi_weather_data.with_columns(
+        pl.col("date").str.to_date("%+")
+    )  # or .to_datetime("%+")
 
     context.add_output_metadata(
         metadata={
-            "num_records": len(df),  # Metadata can be any key-value pair
+            "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-            # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
     return df
