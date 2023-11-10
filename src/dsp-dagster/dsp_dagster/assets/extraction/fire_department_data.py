@@ -1,4 +1,8 @@
-from dagster import asset, AssetExecutionContext, MetadataValue
+from dagster import (
+    asset,
+    AssetExecutionContext,
+    MetadataValue,
+)
 import polars as pl
 
 
@@ -13,7 +17,10 @@ def storm_data_incidents(context: AssetExecutionContext) -> pl.DataFrame:
     :return pl.DataFrame: Large Storm Dataset
     """
     df = pl.read_csv(
-        "./data/Storm_Data_Incidents.csv", null_values=["NULL"]
+        "./data/Storm_Data_Incidents.csv",
+        use_pyarrow=True,
+        null_values=["NULL"],
+        try_parse_dates=True,
     )
     context.add_output_metadata(
         metadata={

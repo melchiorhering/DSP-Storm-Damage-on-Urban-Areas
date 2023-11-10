@@ -27,7 +27,7 @@
     "git.branchProtection": ["main", "master"],
     "settings": {
       "ruff.path": "/usr/local/bin/ruff",
-      "ruff.lint.args": ["--config=src/dsp-dagster/pyproject.toml"],
+      // "ruff.lint.args": ["--config=src/dsp-dagster/pyproject.toml"],
       "ruff.organizeImports": true,
       "files.insertFinalNewline": true,
       "files.trimTrailingWhitespace": true,

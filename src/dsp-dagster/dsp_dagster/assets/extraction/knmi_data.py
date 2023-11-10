@@ -115,5 +115,3 @@ def get_knmi_weather_data(
             }
         )
         return df
-
-    logger.error(f"Received non-200 status code [{response.status_code}]")
