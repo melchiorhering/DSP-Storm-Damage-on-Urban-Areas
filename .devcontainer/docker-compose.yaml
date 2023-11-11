@@ -60,6 +60,7 @@ services:
     working_dir: /home/workspaces/DSP-compose/
     stdin_open: true
     tty: true
+    command: git config --global --add safe.directory /home/workspaces/DSP-compose
     depends_on:
       - dsp-streamlit
       - dsp-dagster

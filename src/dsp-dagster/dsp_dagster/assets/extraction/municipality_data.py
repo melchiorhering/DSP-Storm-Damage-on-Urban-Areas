@@ -12,20 +12,17 @@ import asyncio
 from pydantic import Field
 
 
+def create_url(endpoint: str) -> str:
+    """
+    "Creates the final API url based on base-url and given endpoint"
+
+    :param str endpoint: Given endpoint
+    :return str: final API url
+    """
+    return f"https://api.data.amsterdam.nl{endpoint}"
+
+
 class GemeenteAmsterdamAPI(Config):
-    base_url: str = Field(
-        title="Gemeente-Amsterdam-Base-URL",
-        description="The base url for retrieving data from gemeente Amsterdam API endpoints",
-        default="https://api.data.amsterdam.nl",
-    )
-
-
-class GA_Bomen(GemeenteAmsterdamAPI):
-    bomen_endpoint: str = Field(
-        title="Bomen-Endpoint",
-        description="Endpoint used for retrieving `Bomen` data; information can be found here: https://api.data.amsterdam.nl/v1/docs/datasets/bomen.html, https://api.data.amsterdam.nl/v1/bomen/stamgegevens/",
-        default="/v1/bomen/stamgegevens/",
-    )
     fmt: str = Field(
         title="Output-Format",
         description="Sets the output format of the API-endpoint",
@@ -33,7 +30,7 @@ class GA_Bomen(GemeenteAmsterdamAPI):
     )
     count: str = Field(
         title="Give-Data-Count",
-        description="Boolean (str) for returning the total number of trees in the dataset and the total amount of pages (based on `_pageSize` value)",
+        description="Boolean (str) for returning the total number of items in the dataset and the total amount of pages (based on `_pageSize` value)",
         default="true",
     )
 
@@ -41,6 +38,30 @@ class GA_Bomen(GemeenteAmsterdamAPI):
         title="Page-Size",
         description="Sets page size for the returned data",
         default=5000,
+    )
+
+
+class Trees(GemeenteAmsterdamAPI):
+    url: str = Field(
+        title="Bomen-API-url",
+        description="Endpoint used for retrieving `Bomen` data; information can be found here: https://api.data.amsterdam.nl/v1/docs/datasets/bomen.html",
+        default_factory=lambda: create_url("/v1/bomen/stamgegevens/"),
+    )
+
+
+class Grond(GemeenteAmsterdamAPI):
+    url: str = Field(
+        title="Grond-API-url",
+        description="Endpoint used for retrieving `Grond` data; information can be found here: https://api.data.amsterdam.nl/v1/docs/datasets/bodem.html",
+        default_factory=lambda: create_url("/v1/bodem/grond/"),
+    )
+
+
+class GrondWater(GemeenteAmsterdamAPI):
+    url: str = Field(
+        title="Grond Water-API-url",
+        description="Endpoint used for retrieving `Grondwater` data; information can be found here: https://api.data.amsterdam.nl/v1/docs/datasets/bodem.html",
+        default_factory=lambda: create_url("/v1/bodem/grondwater/"),
     )
 
 
@@ -66,13 +87,11 @@ async def fetch_data(
 
 
 @asset(
-    name="gemeente_ams_tree_data",
+    name="tree_data",
     # key_prefix="api_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
-async def get_gemeente_ams_tree_data(
-    context: AssetExecutionContext, config: GA_Bomen
-) -> pl.DataFrame:
+async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFrame:
     """
     Function that retrieves tree data from the Gemeente Amsterdam API
 
@@ -82,7 +101,6 @@ async def get_gemeente_ams_tree_data(
     :return pl.DataFrame: Amsterdam Trees dataset
     """
     logger = get_dagster_logger()
-    complete_endpoint = config.base_url + config.bomen_endpoint
 
     params = {
         "_format": config.fmt,
@@ -93,7 +111,7 @@ async def get_gemeente_ams_tree_data(
     logger.info(f"Using {params}")
 
     async with httpx.AsyncClient() as session:
-        response = await session.get(complete_endpoint, params=params, timeout=180)
+        response = await session.get(config.url, params=params, timeout=180)
         if response.status_code == 200:
             logger.info(response.headers)
             current_page = int(response.headers["x-pagination-page"])
@@ -109,9 +127,7 @@ async def get_gemeente_ams_tree_data(
             final_data = data["_embedded"]["stamgegevens"]
 
             tasks = [
-                fetch_data(
-                    session, logger, complete_endpoint, params, page, total_pages
-                )
+                fetch_data(session, logger, config.url, params, page, total_pages)
                 for page in range(2, total_pages + 1)
             ]
 

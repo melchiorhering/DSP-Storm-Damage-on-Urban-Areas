@@ -99,7 +99,7 @@ def get_knmi_weather_data(
         "stns": config.stns,
         "fmt": config.fmt,
     }
-    response = requests.request("GET", config.knmi_endpoint, params=params, timeout=60)
+    response = requests.request("GET", config.knmi_endpoint, params=params, timeout=180)
 
     if response.status_code == 200:
         data = response.json()
