@@ -53,14 +53,13 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      # - /var/run/docker.sock:/var/run/docker.sock
       - ..:/home/workspaces/DSP-compose/:cached
-      - ~/.zshrc:/home/.zshrc
-      - ~/.oh-my-zsh/:/home/.oh-my-zsh/
+      # - ~/.zshrc:/home/.zshrc
+      # - ~/.oh-my-zsh/:/home/.oh-my-zsh/
     working_dir: /home/workspaces/DSP-compose/
     stdin_open: true
     tty: true
-    command: git config --global --add safe.directory /home/workspaces/DSP-compose
     depends_on:
       - dsp-streamlit
       - dsp-dagster
