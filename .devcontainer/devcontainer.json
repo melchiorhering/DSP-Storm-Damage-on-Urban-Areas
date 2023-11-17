@@ -7,7 +7,7 @@
   // "workspaceMount": "source=${localWorkspaceFolder},target=/workspace, type=bind, consistency=cached",
   // "workspaceFolder": "${localWorkspaceFolder}",
   "workspaceFolder": "/home/workspaces/DSP-compose",
-  "forwardPorts": ["3000:3000", "8501:8501", "5000:5000"],
+  "forwardPorts": ["3000:3000", "8501:8501", "5001:5001"],
   "shutdownAction": "stopCompose",
 
   // "workspaceFolder": "/home/vscode/workspaces/DSP-comps/",

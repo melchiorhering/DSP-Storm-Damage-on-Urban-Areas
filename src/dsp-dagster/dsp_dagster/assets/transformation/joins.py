@@ -65,6 +65,7 @@ def deployment_incident_vehicles(
     df = deployment_incident.join(
         fire_stations_and_vehicles, on=["Fire_Station", "Vehicle_Type"]
     )
+
     context.add_output_metadata(
         metadata={
             "number_of_columns": MetadataValue.int(len(df.columns)),
@@ -72,4 +73,5 @@ def deployment_incident_vehicles(
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
+
     return df
