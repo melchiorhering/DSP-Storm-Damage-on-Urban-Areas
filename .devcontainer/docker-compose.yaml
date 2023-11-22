@@ -52,7 +52,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock
       - ..:/home/workspaces/DSP-compose/:cached
       # - ~/.zshrc:/home/.zshrc
       # - ~/.oh-my-zsh/:/home/.oh-my-zsh/
