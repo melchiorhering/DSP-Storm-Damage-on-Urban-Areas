@@ -1,14 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
+from pydantic import Field
 from dagster import (
     asset,
     Config,
     AssetExecutionContext,
     MetadataValue,
 )
+
 import polars as pl
-import requests
-from pydantic import Field
+import httpx
+import asyncio
 
 
 def datetime_now() -> int:
@@ -30,7 +32,7 @@ class KNMIAssetConfig(Config):
         title="start",
         description="param field `start` that is the same as the complete start-date in the format: YYYYMMDDHH",
         examples=[2023010100, 2022010100],
-        default=2023010100,
+        default=2005010100,
     )
     end: int = Field(
         title="end",
@@ -51,6 +53,11 @@ class KNMIAssetConfig(Config):
         title="fmt",
         description="Output format, this can be csv (default), json and xml",
         default="json",
+    )
+    interval_months: Optional[int] = Field(
+        title="Interval Months",
+        description="Number of months for each data-fetching interval",
+        default=6,
     )
 
 
@@ -92,26 +99,58 @@ def get_knmi_weather_data(
 
     :return pl.DataFrame: DataFrame with KNMI data based on range
     """
+    start_date = datetime.strptime(str(config.start), "%Y%m%d%H")
+    end_date = datetime.strptime(str(config.end), "%Y%m%d%H")
+    interval = timedelta(
+        days=config.interval_months * 30
+    )  # Approximation of months to days
+    intervals = create_intervals(start_date, end_date, interval)
+
+    loop = asyncio.get_event_loop()
+    all_data = loop.run_until_complete(fetch_data_for_intervals(config, intervals))
+
+    combined_df = pl.concat(all_data)
+
+    context.add_output_metadata(
+        metadata={
+            "describe": MetadataValue.md(
+                combined_df.to_pandas().describe().to_markdown()
+            ),
+            "number_of_columns": MetadataValue.int(len(combined_df.columns)),
+            "preview": MetadataValue.md(combined_df.head().to_pandas().to_markdown()),
+        }
+    )
+    return combined_df
+
+
+def create_intervals(start, end, interval):
+    intervals = []
+    current_start = start
+    while current_start < end:
+        current_end = min(current_start + interval, end)
+        intervals.append((current_start, current_end))
+        current_start = current_end
+    return intervals
+
+
+async def fetch_data_for_interval(client, config, start, end):
     params = {
-        "start": config.start,
-        "end": config.end,
+        "start": start.strftime("%Y%m%d%H"),
+        "end": end.strftime("%Y%m%d%H"),
         "vars": config.vars,
         "stns": config.stns,
         "fmt": config.fmt,
     }
-    response = requests.request("GET", config.knmi_endpoint, params=params, timeout=180)
-
-    if response.status_code == 200:
-        data = response.json()
-        df = pl.from_dicts(data)
-        context.add_output_metadata(
-            metadata={
-                "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
-                "number_of_columns": MetadataValue.int(len(df.columns)),
-                "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-                # The `MetadataValue` class has useful static methods to build Metadata
-            }
-        )
-        return df
-
+    response = await client.get(config.knmi_endpoint, params=params, timeout=180)
     response.raise_for_status()
+    data = response.json()
+    return pl.from_dicts(data)
+
+
+async def fetch_data_for_intervals(config, intervals):
+    async with httpx.AsyncClient() as client:
+        tasks = [
+            fetch_data_for_interval(client, config, start, end)
+            for start, end in intervals
+        ]
+        return await asyncio.gather(*tasks)

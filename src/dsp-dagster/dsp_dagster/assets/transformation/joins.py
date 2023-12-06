@@ -47,7 +47,7 @@ def deployment_incident(
     ins={"fire_stations_and_vehicles": AssetIn(key="fire_stations_and_vehicles")},
     deps=[deployment_incident],
     io_manager_key="database_io_manager",
-    description="Join the vehicle information to combined data",
+    description="Join the vehicle information to combined incident data",
 )
 def deployment_incident_vehicles(
     context: AssetExecutionContext,
@@ -65,6 +65,42 @@ def deployment_incident_vehicles(
     df = deployment_incident.join(
         fire_stations_and_vehicles, on=["Fire_Station", "Vehicle_Type"]
     )
+
+    context.add_output_metadata(
+        metadata={
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+
+    return df
+
+@asset(
+    name="deployment_incident_vehicles_weather",
+    key_prefix="joined",
+    ins={"adjust_knmi_data_types": AssetIn(key="adjust_knmi_data_types")},
+    deps=[deployment_incident_vehicles],
+    io_manager_key="database_io_manager",
+    description="Join weather data to combined incident data",
+)
+def deployment_incident_vehicles_weather(
+    context: AssetExecutionContext,
+    deployment_incident_vehicles: pl.DataFrame,
+    adjust_knmi_data_types: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Joins some more vehicle information to the final DataFrame.
+
+    :param AssetExecutionContext context: Dagster context
+    :param pl.DataFrame deployment_incident: FD data (combined)
+    :param pl.DataFrame fire_stations_and_vehicles: table
+    :return pl.DataFrame: Fire Department Data Table
+    """
+
+    df = deployment_incident_vehicles.join(adjust_knmi_data_types, left_on="Date", right_on="date", how="left")
+
+
 
     context.add_output_metadata(
         metadata={

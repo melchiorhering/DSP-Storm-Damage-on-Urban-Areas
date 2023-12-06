@@ -28,6 +28,12 @@ def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
             "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            "max_date": MetadataValue.text(
+                df.select("Date").max().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
+            ),
+            "min_date": MetadataValue.text(
+                df.select("Date").min().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
+            )
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
