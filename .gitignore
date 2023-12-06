@@ -10,6 +10,8 @@ src/dsp-dagster/data/*
 *.nux
 *.logs_queue
 *schedules/
+*.log
+*.logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
