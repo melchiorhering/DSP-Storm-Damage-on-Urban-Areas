@@ -7,6 +7,8 @@ from dagster import (
 from pydantic import Field
 from requests import request
 import polars as pl
+import pandas as pd
+import geopandas as gpd
 
 
 def create_url(endpoint: str) -> str:
@@ -39,7 +41,7 @@ class PDOK(Config):
     outputFormat: str = Field(
         title="Output-Format",
         examples=["application/json; subtype=geojson", "application/json"],
-        default="application/json",
+        default="application/json; subtype=geojson",
     )
     srsName: str = Field(
         title="CRS",
@@ -82,9 +84,9 @@ class PDOK_CBS(PDOK):
 
 @asset(
     name="bag_panden",
-    io_manager_key="database_io_manager",
+    io_manager_key="geo_database_io_manager",
 )
-def bag_panden(context: AssetExecutionContext, config: PDOK_BAG) -> pl.DataFrame:
+def bag_panden(context: AssetExecutionContext, config: PDOK_BAG) -> pd.DataFrame:
     """
     Retrieve data from the PDOK BAG Web Feature Service (WFS)
 
@@ -106,13 +108,13 @@ def bag_panden(context: AssetExecutionContext, config: PDOK_BAG) -> pl.DataFrame
     if response.status_code == 200:
         data = response.json()
         features = data.pop("features")
-        df = pl.from_dicts(features)
+        df = gpd.GeoDataFrame(features)
         context.add_output_metadata(
             metadata={
                 "metadata": MetadataValue.json(data),
-                "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+                "describe": MetadataValue.md(df.describe().to_markdown()),
                 "number_of_columns": MetadataValue.int(len(df.columns)),
-                "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+                "preview": MetadataValue.md(df.head().to_markdown()),
                 # The `MetadataValue` class has useful static methods to build Metadata
             }
         )
@@ -123,9 +125,9 @@ def bag_panden(context: AssetExecutionContext, config: PDOK_BAG) -> pl.DataFrame
 
 @asset(
     name="cbs_wijken",
-    io_manager_key="database_io_manager",
+    io_manager_key="geo_database_io_manager",
 )
-def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame:
+def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pd.DataFrame:
     """
     Retrieve data from the PDOK Web Feature Service (WFS)
     WFS Documentatie: https://docs.geoserver.org/latest/en/user/services/wfs/reference.html#getfeature
@@ -147,13 +149,13 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
     if response.status_code == 200:
         data = response.json()
         features = data.pop("features")
-        df = pl.from_dicts(features)
+        df = gpd.GeoDataFrame(features)
         context.add_output_metadata(
             metadata={
                 "metadata": MetadataValue.json(data),
-                "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+                "describe": MetadataValue.md(df.describe().to_markdown()),
                 "number_of_columns": MetadataValue.int(len(df.columns)),
-                "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+                "preview": MetadataValue.md(df.head().to_markdown()),
                 # The `MetadataValue` class has useful static methods to build Metadata
             }
         )

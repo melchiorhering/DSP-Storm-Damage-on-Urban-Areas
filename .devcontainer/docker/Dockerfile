@@ -21,4 +21,5 @@ RUN pip install --upgrade pip ruff pylint[spelling] jupyter ipykernel
 RUN pip install streamlit plotly Faker
 
 # Dagster specific
-RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb-polars xlsx2csv openpyxl asyncio httpx
+RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb dagster-duckdb-pandas dagster-duckdb-polars xlsx2csv openpyxl asyncio httpx geopandas
+

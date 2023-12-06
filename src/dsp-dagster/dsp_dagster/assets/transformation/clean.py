@@ -10,6 +10,7 @@ import polars as pl
 @asset(
     name="adjust_knmi_data_types",
     ins={"knmi_weather_data": AssetIn(key="knmi_weather_data")},
+    key_prefix="cleaned",
     io_manager_key="database_io_manager",
     description="Transform str (datetime) to date format",
 )

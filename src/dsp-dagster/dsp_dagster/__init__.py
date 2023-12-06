@@ -1,6 +1,5 @@
 import os
 from dagster import Definitions
-from dagster_duckdb_polars import DuckDBPolarsIOManager
 from .assets import extraction_assets, transformation_assets, model_assets
 from .resources import LOCAL_RESOURCE
 from .jobs import extract_data, transform_data, run_models
