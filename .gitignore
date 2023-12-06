@@ -4,8 +4,12 @@ src/dsp-dagster/storage/*
 src/dsp-dagster/data/*
 *mlruns/*
 
-*logs/*
-*history/*
+*logs
+*history
+*.telemetry
+*.nux
+*.logs_queue
+*schedules/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

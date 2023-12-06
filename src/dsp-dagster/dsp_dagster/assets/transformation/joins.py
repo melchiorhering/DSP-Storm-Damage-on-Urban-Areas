@@ -76,6 +76,7 @@ def deployment_incident_vehicles(
 
     return df
 
+
 @asset(
     name="deployment_incident_vehicles_weather",
     key_prefix="joined",
@@ -98,9 +99,14 @@ def deployment_incident_vehicles_weather(
     :return pl.DataFrame: Fire Department Data Table
     """
 
-    df = deployment_incident_vehicles.join(adjust_knmi_data_types, left_on="Date", right_on="date", how="left")
+    adjust_knmi_data_types.columns = [
+        col.capitalize() for col in adjust_knmi_data_types.columns
+    ]
+    df = adjust_knmi_data_types.join(
+        deployment_incident_vehicles, on="Date", how="left"
+    )
 
-
+    print(df.head())
 
     context.add_output_metadata(
         metadata={
