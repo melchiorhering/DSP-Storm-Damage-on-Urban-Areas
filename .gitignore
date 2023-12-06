@@ -4,6 +4,9 @@ src/dsp-dagster/storage/*
 src/dsp-dagster/data/*
 *mlruns/*
 
+*/logs/*
+*/history/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
