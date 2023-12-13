@@ -86,3 +86,27 @@ def fire_stations_and_vehicles(context: AssetExecutionContext) -> pl.DataFrame:
     )
 
     return df
+
+@asset(
+    name="service_areas",
+    # key_prefix="local_extraction",
+    io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
+)
+def service_areas(context: AssetExecutionContext) -> pl.DataFrame:
+    """
+    Loads the service areas and their homebase
+
+    :return pl.DataFrame: Service aread geometry
+    """
+    df = pl.read_csv(
+        "./data/Service_Areas.csv",
+    )
+    context.add_output_metadata(
+        metadata={
+            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+    return df
