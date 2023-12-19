@@ -63,7 +63,6 @@ class KNMIAssetConfig(Config):
 
 @asset(
     name="knmi_weather_data",
-    # key_prefix="api_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 def get_knmi_weather_data(

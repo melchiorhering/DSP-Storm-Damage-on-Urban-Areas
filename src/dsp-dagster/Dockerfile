@@ -6,7 +6,7 @@ RUN apt-get update && apt-get upgrade -y
 
 RUN pip install --upgrade pip
 # Dagster specific
-RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb dagster-duckdb-pandas dagster-duckdb-polars xlsx2csv openpyxl asyncio httpx Faker geopandas
+RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb dagster-duckdb-pandas dagster-duckdb-polars xlsx2csv openpyxl asyncio httpx Faker geopandas notebook
 
 
 

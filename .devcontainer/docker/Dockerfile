@@ -23,3 +23,6 @@ RUN pip install streamlit plotly Faker
 # Dagster specific
 RUN pip install dagster dagster-webserver dagster-mlflow dagster-duckdb dagster-duckdb-pandas dagster-duckdb-polars xlsx2csv openpyxl asyncio httpx geopandas
 
+# Workbook specific
+RUN pip install duckdb duckdb-engine jupysql notebook xgboost scikit-learn
+

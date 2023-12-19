@@ -1,7 +1,16 @@
-from dagster import AssetExecutionContext, Config, MetadataValue, asset, get_dagster_logger
+from dagster import (
+    AssetExecutionContext,
+    Config,
+    MetadataValue,
+    asset,
+    get_dagster_logger,
+)
 from pydantic import Field
 from requests import request
+import geopandas as gpd
+import pandas as pd
 import polars as pl
+from shapely.wkt import dumps
 
 
 def create_url(endpoint: str) -> str:
@@ -82,8 +91,10 @@ class PDOK_CBS(PDOK):
 def bag_panden(context, config: PDOK_BAG) -> pl.DataFrame:
     """
     Retrieve data from the PDOK BAG Web Feature Service (WFS)
-    Returns two DataFrames: One (Polars DataFrame) with normalized properties and bbox, and another (GeoPandas DataFrame) with geometry data.
+    returns pl.DataFrame: A Table with geospatial data based on BAG-Panden
     """
+
+    logger = get_dagster_logger()
     params = {
         "request": config.request,
         "service": config.service,
@@ -94,14 +105,19 @@ def bag_panden(context, config: PDOK_BAG) -> pl.DataFrame:
     }
 
     response = request("GET", config.bag_url, params=params, timeout=240)
+    logger.info(response.url)
 
     if response.status_code == 200:
         data = response.json()
-        df = pl.from_dicts(data.pop("features"))
+        # Read Feature Collection to Geopandas df, then transform to Pandas
+        gdf = gpd.GeoDataFrame.from_features(data)
+        gdf["geometry"] = gdf["geometry"].apply(dumps)
+        logger.info(gdf.head())
+        df = pl.from_pandas(pd.DataFrame(gdf))
 
         context.add_output_metadata(
             metadata={
-                "metadata": MetadataValue.json(data),
+                # "metadata": MetadataValue.json(data),
                 # "describe": MetadataValue.md(df.describe().to_markdown()),
                 "number_of_columns": MetadataValue.int(len(df.columns)),
                 "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
@@ -122,6 +138,8 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
     Retrieve data from the PDOK Web Feature Service (WFS)
     WFS Documentatie: https://docs.geoserver.org/latest/en/user/services/wfs/reference.html#getfeature
     Meer Documentatie: https://pdok-ngr.readthedocs.io/services.html#web-feature-service-wfs
+
+    returns pl.DataFrame: A Table with geospatial data based on CBS-Wijken
     """
 
     logger = get_dagster_logger()
@@ -135,14 +153,21 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
     }
 
     response = request("GET", config.cbs_url, params=params, timeout=240)
+    logger.info(response.url)
 
     if response.status_code == 200:
         data = response.json()
-        df = pl.from_dicts(data.pop("features"))
+
+        # Read Feature Collection to Geopandas df, then transform to Pandas
+        gdf = gpd.GeoDataFrame.from_features(data)
+        gdf["geometry"] = gdf["geometry"].apply(dumps)
+        logger.info(gdf.head())
+        df = pl.from_pandas(pd.DataFrame(gdf))
 
         context.add_output_metadata(
             metadata={
-                "metadata": MetadataValue.json(data),
+                # "metadata": MetadataValue.json(data),
+                # "url_used": MetadataValue.text(response.url),
                 # "describe": MetadataValue.md(df.describes().to_markdown()),
                 "number_of_columns": MetadataValue.int(len(df.columns)),
                 "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),

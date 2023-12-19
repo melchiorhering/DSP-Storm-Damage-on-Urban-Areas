@@ -4,11 +4,13 @@ from dagster import (
     MetadataValue,
 )
 import polars as pl
+import pandas as pd
+import geopandas as gpd
+from shapely.wkt import dumps
 
 
 @asset(
     name="storm_incidents",
-    # key_prefix="local_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
@@ -42,7 +44,6 @@ def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
 
 @asset(
     name="storm_deployments",
-    # key_prefix="local_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 def storm_deployments(context: AssetExecutionContext) -> pl.DataFrame:
@@ -65,7 +66,6 @@ def storm_deployments(context: AssetExecutionContext) -> pl.DataFrame:
 
 @asset(
     name="fire_stations_and_vehicles",
-    # key_prefix="local_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 def fire_stations_and_vehicles(context: AssetExecutionContext) -> pl.DataFrame:
@@ -87,25 +87,32 @@ def fire_stations_and_vehicles(context: AssetExecutionContext) -> pl.DataFrame:
 
     return df
 
+
 @asset(
     name="service_areas",
-    # key_prefix="local_extraction",
-    io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
+    io_manager_key="database_io_manager",
 )
 def service_areas(context: AssetExecutionContext) -> pl.DataFrame:
     """
-    Loads the service areas and their homebase
+    Loads the service areas and their homebases
 
-    :return pl.DataFrame: Service aread geometry
+    :return pl.DataFrame: Table with Service Area geometry and linked homebase
     """
     df = pl.read_csv(
         "./data/Service_Areas.csv",
-    )
+    ).to_pandas()
+
+    # Read Feature Collection to Geopandas df, then transform to Pandas
+    df["geometry"] = gpd.GeoSeries.from_wkt(df["geomtext"])
+    gdf = gpd.GeoDataFrame(df, geometry="geometry").drop(columns=["geomtext", "geom"])
+    gdf["geometry"] = gdf["geometry"].apply(dumps)
+    df = pl.from_pandas(pd.DataFrame(gdf))
+
     context.add_output_metadata(
         metadata={
             "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )

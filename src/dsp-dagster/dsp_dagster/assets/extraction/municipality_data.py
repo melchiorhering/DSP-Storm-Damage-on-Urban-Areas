@@ -88,7 +88,6 @@ async def fetch_data(
 
 @asset(
     name="tree_data",
-    # key_prefix="api_extraction",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
 async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFrame:
