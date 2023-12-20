@@ -3,7 +3,6 @@ from dagster import (
     AssetIn,
     MetadataValue,
     asset,
-    get_dagster_logger,
 )
 import polars as pl
 
@@ -78,51 +77,15 @@ def incident_deployments_vehicles(
     return df
 
 
-# @asset(
-#     name="deployment_incident_vehicles_serviceareas",
-#     key_prefix="joined",
-#     ins={"service_areas": AssetIn(key="service_areas")},
-#     deps=[deployment_incident_vehicles],
-#     io_manager_key="database_io_manager",
-#     description="Join service areas to deployment_incident_vehicles",
-# )
-# def deployment_incident_vehicles_serviceareas(
-#     context: AssetExecutionContext,
-#     deployment_incident_vehicles: pl.DataFrame,
-#     service_areas: pl.DataFrame,
-# ) -> pl.DataFrame:
-#     """
-#     Joins service areas to deployment_incident
-
-#     :param AssetExecutionContext context: Dagster context
-#     :param pl.DataFrame deployment_incident_vehicles: FD data (combined)
-#     :param pl.DataFrame service_areas: table
-#     :return pl.DataFrame: Combined FD data table
-#     """
-#     df = deployment_incident_vehicles.join(
-#         service_areas, how="left", left_on="Service_Area", right_on="Verzorgingsgebied", suffix="_service_area"
-#     )
-
-#     context.add_output_metadata(
-#         metadata={
-#             "number_of_columns": MetadataValue.int(len(df.columns)),
-#             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-#             # The `MetadataValue` class has useful static methods to build Metadata
-#         }
-#     )
-
-#     return df
-
-
 @asset(
-    name="deployment_incident_vehicles_weather",
+    name="incident_deployments_vehicles_weather",
     key_prefix="joined",
     ins={"cleaned_knmi_weather_data": AssetIn(key="cleaned_knmi_weather_data")},
     deps=[incident_deployments_vehicles],
     io_manager_key="database_io_manager",
     description="Join weather data to combined incident data",
 )
-def deployment_incident_vehicles_weather(
+def incident_deployments_vehicles_weather(
     context: AssetExecutionContext,
     incident_deployments_vehicles: pl.DataFrame,
     cleaned_knmi_weather_data: pl.DataFrame,
@@ -135,7 +98,6 @@ def deployment_incident_vehicles_weather(
     :param pl.DataFrame fire_stations_and_vehicles: table
     :return pl.DataFrame: Weather data with joined FD incidents data
     """
-    logger = get_dagster_logger()
 
     df = cleaned_knmi_weather_data.join(
         incident_deployments_vehicles,
@@ -144,9 +106,6 @@ def deployment_incident_vehicles_weather(
         how="left",
     )
 
-    logger.info(df.head())
-    logger.info(df.schema)
-
     # Checking for null values in each column
     null_counts = df.select(
         [
@@ -154,11 +113,9 @@ def deployment_incident_vehicles_weather(
             for column in df.columns
         ]
     )
-
-    logger.info(null_counts)
-
     context.add_output_metadata(
         metadata={
+            "null_counts": MetadataValue.md(null_counts.to_pandas().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
