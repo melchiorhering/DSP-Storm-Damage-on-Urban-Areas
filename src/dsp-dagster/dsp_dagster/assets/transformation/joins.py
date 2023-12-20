@@ -3,8 +3,11 @@ from dagster import (
     AssetIn,
     MetadataValue,
     asset,
+    get_dagster_logger,
 )
 import polars as pl
+import geopandas as gpd
+from shapely.wkt import dumps
 
 
 @asset(
@@ -78,6 +81,70 @@ def incident_deployments_vehicles(
 
 
 @asset(
+    name="incident_deployments_vehicles_wijken",
+    key_prefix="joined",
+    ins={"cbs_wijken": AssetIn(key="cbs_wijken")},
+    deps=[incident_deployments_vehicles],
+    io_manager_key="database_io_manager",
+    description="Join cbs-wijken info (minus geomtrics) to incidents",
+)
+def incident_deployments_vehicles_wijken(
+    context: AssetExecutionContext,
+    incident_deployments_vehicles: pl.DataFrame,
+    cbs_wijken: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Joins some more vehicle information to the final DataFrame.
+
+    :param AssetExecutionContext context: Dagster context
+    :param pl.DataFrame cbs_wijkenm: CBS data bout 'wijken'
+    :param pl.DataFrame deployment_incident_vehicles data: Joined FD data
+    :return pl.DataFrame: Fire Department Data Table
+    """
+    logger = get_dagster_logger()
+
+    # Convert to pandas DataFrames
+    incident_deployments_vehicles_pd = incident_deployments_vehicles.to_pandas()
+    cbs_wijken_pd = cbs_wijken.to_pandas()
+
+    # Convert to GeoDataFrames
+    incident_deployments_vehicles_gpd = gpd.GeoDataFrame(
+        incident_deployments_vehicles_pd,
+        geometry=gpd.points_from_xy(
+            incident_deployments_vehicles_pd.LON, incident_deployments_vehicles_pd.LAT
+        ),
+        crs="EPSG:4326",
+    )
+
+    cbs_wijken_gpd = gpd.GeoDataFrame(
+        cbs_wijken_pd,
+        geometry=gpd.GeoSeries.from_wkt(cbs_wijken_pd.geometry),
+        crs="EPSG:4326",
+    )
+
+    # Perform the spatial join
+    joined_df = gpd.sjoin(
+        incident_deployments_vehicles_gpd, cbs_wijken_gpd, how="left", op="intersects"
+    )
+
+    # Convert the Point geometry column to WKT string using dumps
+    joined_df["geometry"] = joined_df["geometry"].apply(dumps)
+
+    # Convert back to Polars DataFrame if needed
+    df = pl.from_pandas(joined_df)
+
+    context.add_output_metadata(
+        metadata={
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+
+    return df
+
+
+@asset(
     name="incident_deployments_vehicles_weather",
     key_prefix="joined",
     ins={"cleaned_knmi_weather_data": AssetIn(key="cleaned_knmi_weather_data")},
@@ -123,69 +190,3 @@ def incident_deployments_vehicles_weather(
     )
 
     return df
-
-
-# @asset(
-#     name="deployment_incident_vehicles_cbs_wijken",
-#     key_prefix="joined",
-#     ins={"cbs_wijken": AssetIn(key="cbs_wijken")},
-#     deps=[deployment_incident_vehicles],
-#     io_manager_key="database_io_manager",
-#     description="Join cbs-wijken data to combined incident data",
-# )
-# def deployment_incident_vehicles_cbs_wijken(
-#     context: AssetExecutionContext,
-#     deployment_incident_vehicles: pl.DataFrame,
-#     cbs_wijken: pl.DataFrame,
-# ) -> pl.DataFrame:
-#     """
-#     Joins some more vehicle information to the final DataFrame.
-
-#     :param AssetExecutionContext context: Dagster context
-#     :param pl.DataFrame cbs_wijkenm: CBS data bout 'wijken'
-#     :param pl.DataFrame deployment_incident_vehicles data: Joined FD data
-#     :return pl.DataFrame: Fire Department Data Table
-#     """
-#     logger = get_dagster_logger()
-
-#     depl_inc_veh_pd = deployment_incident_vehicles.to_pandas()
-#     cbs_wijken_pd = cbs_wijken.to_pandas()
-
-#     logger.info(depl_inc_veh_pd.head())
-#     logger.info(depl_inc_veh_pd.columns)
-
-#     logger.info(cbs_wijken_pd.head())
-#     logger.info(cbs_wijken_pd.columns)
-
-#     depl_inc_veh_gpd = gpd.GeoDataFrame(
-#         depl_inc_veh_pd,
-#         geometry=gpd.points_from_xy(depl_inc_veh_pd.LON, depl_inc_veh_pd.LAT),
-#         crs="EPSG:4326",
-#     )
-#     logger.info(depl_inc_veh_gpd.head())
-
-#     cbs_wijken_gpd = gpd.GeoDataFrame(
-#         cbs_wijken_pd,
-#         geometry=gpd.GeoSeries.from_wkt(cbs_wijken_pd.geometry),
-#         crs="EPSG:4326",
-#     )
-#     logger.info(cbs_wijken_gpd.head())
-
-#     gdf = cbs_wijken_gpd.sjoin(
-#         depl_inc_veh_gpd,
-#         how="left",
-#     )
-
-#     gdf["geometry"] = gdf["geometry"].apply(dumps)
-#     logger.info(gdf.head())
-#     df = pl.from_pandas(pd.DataFrame(gdf))
-
-#     context.add_output_metadata(
-#         metadata={
-#             "number_of_columns": MetadataValue.int(len(df.columns)),
-#             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-#             # The `MetadataValue` class has useful static methods to build Metadata
-#         }
-#     )
-
-#     return df

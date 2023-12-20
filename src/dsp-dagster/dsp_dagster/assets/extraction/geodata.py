@@ -7,6 +7,7 @@ from dagster import (
 )
 from pydantic import Field
 from requests import request
+from urllib.parse import quote
 import geopandas as gpd
 import pandas as pd
 import polars as pl
@@ -76,12 +77,11 @@ class PDOK_CBS(PDOK):
         title="PDOK CBS Web Feature Service Endpoint",
         default_factory=lambda: create_url("/cbs/wijkenbuurten/2022/wfs/v1_0"),
     )
-    typeName: str = Field(
-        title="Type-Name",
-        description="What type of BAG data to request",
-        examples=["wijkenbuurten:buurten", "wijkenbuurten:buurten"],
-        default="wijkenbuurten:buurten",
-    )
+    # typeName: str = Field(
+    #     title="Type-Name",
+    #     description="What type of BAG data to request",
+    #     examples=["wijkenbuurten:wijken", "wijkenbuurten:buurten"],
+    # )
 
 
 @asset(
@@ -138,20 +138,100 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
     Retrieve data from the PDOK Web Feature Service (WFS)
     WFS Documentatie: https://docs.geoserver.org/latest/en/user/services/wfs/reference.html#getfeature
     Meer Documentatie: https://pdok-ngr.readthedocs.io/services.html#web-feature-service-wfs
+    Documentatie over velden: https://www.cbs.nl/nl-nl/longread/diversen/2022/toelichting-wijk-en-buurtkaart-2020-2021-en-2022?onepage=true
 
     returns pl.DataFrame: A Table with geospatial data based on CBS-Wijken
     """
-
     logger = get_dagster_logger()
+
+    # Construct the filter XML on Gemeente Amsterdam
+    filter_xml = """
+    <Filter>
+        <PropertyIsEqualTo>
+            <PropertyName>gemeentenaam</PropertyName>
+            <Literal>Amsterdam</Literal>
+        </PropertyIsEqualTo>
+    </Filter>
+    """
+
+    # URL-encode the filter
+    encoded_filter = quote(filter_xml)
+
+    # Set up request parameters, including the filter
     params = {
         "request": config.request,
         "service": config.service,
         "version": config.version,
         "outputFormat": config.outputFormat,
-        "typeName": config.typeName,
+        "typeName": "wijkenbuurten:wijken",
         "srsName": config.srsName,
+        "filter": filter_xml,  # Add the encoded filter here
     }
+    response = request("GET", config.cbs_url, params=params, timeout=240)
+    logger.info(response.url)
 
+    if response.status_code == 200:
+        data = response.json()
+
+        # Read Feature Collection to Geopandas df, then transform to Pandas
+        gdf = gpd.GeoDataFrame.from_features(data)
+        gdf["geometry"] = gdf["geometry"].apply(dumps)
+        logger.info(gdf.head())
+        df = pl.from_pandas(pd.DataFrame(gdf))
+
+        context.add_output_metadata(
+            metadata={
+                # "metadata": MetadataValue.json(data),
+                # "url_used": MetadataValue.text(response.url),
+                # "describe": MetadataValue.md(df.describes().to_markdown()),
+                "number_of_columns": MetadataValue.int(len(df.columns)),
+                "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+                # The `MetadataValue` class has useful static methods to build Metadata
+            }
+        )
+        return df
+
+    response.raise_for_status()
+
+
+@asset(
+    name="cbs_buurten",
+    io_manager_key="database_io_manager",
+)
+def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame:
+    """
+    Retrieve data from the PDOK Web Feature Service (WFS)
+    WFS Documentatie: https://docs.geoserver.org/latest/en/user/services/wfs/reference.html#getfeature
+    Meer Documentatie: https://pdok-ngr.readthedocs.io/services.html#web-feature-service-wfs
+    Documentatie over velden: https://www.cbs.nl/nl-nl/longread/diversen/2022/toelichting-wijk-en-buurtkaart-2020-2021-en-2022?onepage=true
+
+    returns pl.DataFrame: A Table with geospatial data based on CBS-Wijken
+    """
+    logger = get_dagster_logger()
+
+    # Construct the filter XML on Gemeente Amsterdam
+    filter_xml = """
+    <Filter>
+        <PropertyIsEqualTo>
+            <PropertyName>gemeentenaam</PropertyName>
+            <Literal>Amsterdam</Literal>
+        </PropertyIsEqualTo>
+    </Filter>
+    """
+
+    # URL-encode the filter
+    encoded_filter = quote(filter_xml)
+
+    # Set up request parameters, including the filter
+    params = {
+        "request": config.request,
+        "service": config.service,
+        "version": config.version,
+        "outputFormat": config.outputFormat,
+        "typeName": "wijkenbuurten:buurten",
+        "srsName": config.srsName,
+        "filter": filter_xml,  # Add the encoded filter here
+    }
     response = request("GET", config.cbs_url, params=params, timeout=240)
     logger.info(response.url)
 
