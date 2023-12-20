@@ -13,14 +13,14 @@ import polars as pl
     key_prefix="joined",
     ins={
         "storm_deployments": AssetIn(key="storm_deployments"),
-        "storm_incidents": AssetIn(key="storm_incidents"),
+        "storm_incident_time_features": AssetIn(key="storm_incident_time_features"),
     },
     io_manager_key="database_io_manager",
     description="Join storm_deployments on storm_incidents based on  Incident_ID from the storm_deployments table",
 )
 def deployment_incident(
     context: AssetExecutionContext,
-    storm_incidents: pl.DataFrame,
+    storm_incident_time_features: pl.DataFrame,
     storm_deployments: pl.DataFrame,
 ) -> pl.DataFrame:
     """
@@ -31,7 +31,7 @@ def deployment_incident(
     :return pl.DataFrame: Combined DataFrame
     """
 
-    df = storm_incidents.join(storm_deployments, on="Incident_ID")
+    df = storm_incident_time_features.join(storm_deployments, on="Incident_ID")
     context.add_output_metadata(
         metadata={
             "number_of_columns": MetadataValue.int(len(df.columns)),
@@ -136,11 +136,12 @@ def deployment_incident_vehicles_weather(
     :return pl.DataFrame: Weather data with joined FD incidents data
     """
     logger = get_dagster_logger()
-    adjust_knmi_data_types.columns = [
-        col.capitalize() for col in adjust_knmi_data_types.columns
-    ]
+
     df = adjust_knmi_data_types.join(
-        deployment_incident_vehicles, on="Date", how="left"
+        deployment_incident_vehicles,
+        left_on=["Date", "Hour"],
+        right_on=["Date", "Incident_Starttime_Hour"],
+        how="left",
     )
 
     logger.info(df.head())
@@ -165,8 +166,6 @@ def deployment_incident_vehicles_weather(
     )
 
     return df
-
-
 
 
 # @asset(
