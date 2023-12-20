@@ -9,18 +9,18 @@ import polars as pl
 
 
 @asset(
-    name="deployment_incident",
+    name="incident_deployments",
     key_prefix="joined",
     ins={
         "storm_deployments": AssetIn(key="storm_deployments"),
-        "storm_incident_time_features": AssetIn(key="storm_incident_time_features"),
+        "storm_incidents": AssetIn(key="cleaned_storm_incidents"),
     },
     io_manager_key="database_io_manager",
-    description="Join storm_deployments on storm_incidents based on  Incident_ID from the storm_deployments table",
+    description="Join storm_deployments on storm_incidents based on Incident_ID from the storm_deployments table",
 )
-def deployment_incident(
+def incident_deployments(
     context: AssetExecutionContext,
-    storm_incident_time_features: pl.DataFrame,
+    storm_incidents: pl.DataFrame,
     storm_deployments: pl.DataFrame,
 ) -> pl.DataFrame:
     """
@@ -31,7 +31,7 @@ def deployment_incident(
     :return pl.DataFrame: Combined DataFrame
     """
 
-    df = storm_incident_time_features.join(storm_deployments, on="Incident_ID")
+    df = storm_incidents.join(storm_deployments, on="Incident_ID")
     context.add_output_metadata(
         metadata={
             "number_of_columns": MetadataValue.int(len(df.columns)),
@@ -43,16 +43,16 @@ def deployment_incident(
 
 
 @asset(
-    name="deployment_incident_vehicles",
+    name="incident_deployments_vehicles",
     key_prefix="joined",
     ins={"fire_stations_and_vehicles": AssetIn(key="fire_stations_and_vehicles")},
-    deps=[deployment_incident],
+    deps=[incident_deployments],
     io_manager_key="database_io_manager",
     description="Join the vehicle information to combined incident data",
 )
-def deployment_incident_vehicles(
+def incident_deployments_vehicles(
     context: AssetExecutionContext,
-    deployment_incident: pl.DataFrame,
+    incident_deployments: pl.DataFrame,
     fire_stations_and_vehicles: pl.DataFrame,
 ) -> pl.DataFrame:
     """
@@ -63,7 +63,7 @@ def deployment_incident_vehicles(
     :param pl.DataFrame fire_stations_and_vehicles: table
     :return pl.DataFrame: Combined FD data table
     """
-    df = deployment_incident.join(
+    df = incident_deployments.join(
         fire_stations_and_vehicles, on=["Fire_Station", "Vehicle_Type"]
     )
 
@@ -117,15 +117,15 @@ def deployment_incident_vehicles(
 @asset(
     name="deployment_incident_vehicles_weather",
     key_prefix="joined",
-    ins={"adjust_knmi_data_types": AssetIn(key="adjust_knmi_data_types")},
-    deps=[deployment_incident_vehicles],
+    ins={"cleaned_knmi_weather_data": AssetIn(key="cleaned_knmi_weather_data")},
+    deps=[incident_deployments_vehicles],
     io_manager_key="database_io_manager",
     description="Join weather data to combined incident data",
 )
 def deployment_incident_vehicles_weather(
     context: AssetExecutionContext,
-    deployment_incident_vehicles: pl.DataFrame,
-    adjust_knmi_data_types: pl.DataFrame,
+    incident_deployments_vehicles: pl.DataFrame,
+    cleaned_knmi_weather_data: pl.DataFrame,
 ) -> pl.DataFrame:
     """
     Joins some more vehicle information to the final DataFrame.
@@ -137,8 +137,8 @@ def deployment_incident_vehicles_weather(
     """
     logger = get_dagster_logger()
 
-    df = adjust_knmi_data_types.join(
-        deployment_incident_vehicles,
+    df = cleaned_knmi_weather_data.join(
+        incident_deployments_vehicles,
         left_on=["Date", "Hour"],
         right_on=["Date", "Incident_Starttime_Hour"],
         how="left",

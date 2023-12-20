@@ -8,13 +8,13 @@ import polars as pl
 
 
 @asset(
-    name="adjust_knmi_data_types",
+    name="cleaned_knmi_weather_data",
     ins={"knmi_weather_data": AssetIn(key="knmi_weather_data")},
     key_prefix="cleaned",
     io_manager_key="database_io_manager",
     description="Transform str (datetime) to date format",
 )
-def adjust_knmi_data_types(
+def cleaned_knmi_weather_data(
     context: AssetExecutionContext, knmi_weather_data: pl.DataFrame
 ) -> pl.DataFrame:
     """
@@ -22,10 +22,12 @@ def adjust_knmi_data_types(
     :return pl.DataFrame: with adjusted data-types
     """
 
+    # Change datetime-string to datetime format
     df = knmi_weather_data.with_columns(
-        pl.col("date").str.to_date("%+")
+        pl.col("date").str.to_date("%+"), pl.col("hour").cast(pl.Int8)
     )  # or .to_datetime("%+")
 
+    # Capitalize col names
     df.columns = [col.capitalize() for col in df.columns]
 
     context.add_output_metadata(
@@ -38,13 +40,13 @@ def adjust_knmi_data_types(
 
 
 @asset(
-    name="storm_incident_time_features",
+    name="cleaned_storm_incidents",
     ins={"storm_incidents": AssetIn(key="storm_incidents")},
     key_prefix="cleaned",
     io_manager_key="database_io_manager",
     description="Retrieve (time) features from storm_incidents",
 )
-def storm_incident_time_features(
+def cleaned_storm_incidents(
     context: AssetExecutionContext, storm_incidents: pl.DataFrame
 ) -> pl.DataFrame:
     """

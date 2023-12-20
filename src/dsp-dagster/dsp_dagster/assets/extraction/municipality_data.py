@@ -69,7 +69,7 @@ async def fetch_data(
     session, logger, complete_endpoint, params, current_page, total_pages
 ):
     params["page"] = current_page
-    response = await session.get(complete_endpoint, params=params, timeout=180)
+    response = await session.get(complete_endpoint, params=params, timeout=240)
     if response.status_code == 200:
         logger.info(f"[PAGE] {current_page} | {total_pages} [RETRIEVED]")
 
@@ -110,7 +110,7 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
     logger.info(f"Using {params}")
 
     async with httpx.AsyncClient() as session:
-        response = await session.get(config.url, params=params, timeout=180)
+        response = await session.get(config.url, params=params, timeout=240)
         if response.status_code == 200:
             logger.info(response.headers)
             current_page = int(response.headers["x-pagination-page"])
