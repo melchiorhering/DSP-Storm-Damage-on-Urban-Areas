@@ -30,7 +30,7 @@ This project originated from a collaboration with the Amsterdam-Amstelland Fire 
 
 <a href="https://duckdb.org/"> <img src="./images/DuckDB_Logo.png" alt="DuckDB" title="DuckDB" width="120"/></a>
 
-### `Diagram`
+## Diagram
 
 ![Project Solution Diagram](./images/Project-Solution-Diagram.svg)
 
