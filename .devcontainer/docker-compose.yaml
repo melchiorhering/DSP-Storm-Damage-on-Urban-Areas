@@ -15,9 +15,7 @@ services:
     volumes:
       #   # Update this to wherever you want VS Code to mount the folder of your project
       - ../src/dsp-dagster:/home/workspaces/DSP-compose/dsp-dagster/:cached
-    environment:
-      - DAGSTER_HOME=/home/workspaces/DSP-compose/dsp-dagster/
-    entrypoint: dagster dev -h 0.0.0.0 -p 3000
+    entrypoint: [./startup-script.sh]
     ports:
       - 3000:3000
   dsp-streamlit:
@@ -30,33 +28,31 @@ services:
     volumes:
       #   # Update this to wherever you want VS Code to mount the folder of your project
       - ../src/dsp-streamlit:/home/workspaces/DSP-compose/dsp-streamlit/:cached
-    entrypoint: streamlit run Home.py
+    entrypoint: [./startup-script.sh]
     ports:
       - 8501:8501
   dsp-mlflow:
     build:
       context: .
-      dockerfile: ../src/dsp-mlflow/Dockerfile
+      dockerfile: ../src/dsp-dagster/Dockerfile
     working_dir: /home/workspaces/DSP-compose/dsp-mlflow
     stdin_open: true
     tty: true
     volumes:
       - ../src/dsp-mlflow:/home/workspaces/DSP-compose/dsp-mlflow/:cached
-    # entrypoint: mlflow server --backend-store-uri  file:///mlruns --no-serve-artifacts -h 0.0.0.0 -p 5000
-    entrypoint: mlflow server --backend-store-uri sqlite:///mlruns.db --default-artifact-root ./mlruns -h 0.0.0.0 -p 5001
+    entrypoint: [./startup-script.sh]
     ports:
       - 5001:5001
 
   workspace:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: ../.devcontainer/docker/Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ..:/home/workspaces/DSP-compose/:cached
-      # - ~/.zshrc:/home/.zshrc
-      # - ~/.oh-my-zsh/:/home/.oh-my-zsh/
     working_dir: /home/workspaces/DSP-compose/
+    command: [./startup-script.sh]
     stdin_open: true
     tty: true
     depends_on:

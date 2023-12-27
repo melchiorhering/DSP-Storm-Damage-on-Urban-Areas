@@ -10,7 +10,6 @@
   "forwardPorts": ["3000:3000", "8501:8501", "5001:5001"],
   "shutdownAction": "stopCompose",
 
-  // "workspaceFolder": "/home/vscode/workspaces/DSP-comps/",
   "dockerComposeFile": ["docker-compose.yaml"],
 
   // "appPort": [3000, "8921:5000"],
@@ -37,7 +36,7 @@
       "python.analysis.indexing": true,
       "python.analysis.autoImportCompletions": true,
       "python.terminal.activateEnvInCurrentTerminal": true,
-      "python.defaultInterpreterPath": "/usr/local/bin/python",
+      // "python.defaultInterpreterPath": "/usr/local/bin/python",
       "rewrap.wrappingColumn": 88,
       "[json]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"

@@ -1,3 +1,29 @@
+[tool.poetry]
+name = "dsp-dagster"
+version = "0.1.0"
+description = "Dagster pyproject.toml"
+authors = ["Stijn Hering <stijn@hering.nl>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+dagster = "^1.5.13"
+dagster-webserver = "^1.5.13"
+dagster-mlflow = "^0.21.13"
+dagster-duckdb = "^0.21.13"
+dagster-duckdb-pandas = "^0.21.13"
+dagster-duckdb-polars = "^0.21.13"
+xlsx2csv = "^0.8.2"
+openpyxl = "^3.1.2"
+asyncio = "^3.4.3"
+httpx = "^0.26.0"
+faker = "^21.0.0"
+geopandas = "^0.14.1"
+notebook = "^7.0.6"
+requests = "^2.30.0"
+urllib3 = "^1.26"
+requests-toolbelt = "0.10.1"
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"

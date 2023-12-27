@@ -12,6 +12,8 @@ This project originated from a collaboration with the Amsterdam-Amstelland Fire 
 
 ## Tools Used
 
+![Project Solution Diagram](./images/Project-Solution-Diagram.svg)
+
 - TO DO
 - TO DO
 - TO DO
