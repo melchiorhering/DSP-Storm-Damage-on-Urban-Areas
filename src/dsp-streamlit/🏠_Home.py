@@ -1,34 +1,26 @@
 import streamlit as st
-import pandas as pd
-from datetime import date
-import plotly.graph_objs as go
-import plotly.express as px
 from custom.database import *
-
 
 
 st.title("DuckDB Tables Viewer")
 
 # Path to your DuckDB file
-db_file_path = "../dsp-dagster/storage/DSP.db"
+db_file_path = "../DSP.db"
 
 # Connect to DuckDB
 conn = connect_to_duckdb(db_file_path)
 
 if conn:
-    # Execute a query
-    query = "SELECT * FROM your_table"
-    try:
-        df = conn.execute(query).df()
-        st.write(df.head())
-    except Exception as e:
-        st.error(f"Error executing query: {e}")
-    finally:
-        conn.close()
+    # Get table information
+    table_info = get_table_info(conn)
 
+    if not table_info.empty:
+        st.write("Table Information:")
+        st.dataframe(table_info, use_container_width=True)
+    else:
+        st.write("No table information found in the database.")
 
-
-
+    conn.close()
 
 
 # Sample Data

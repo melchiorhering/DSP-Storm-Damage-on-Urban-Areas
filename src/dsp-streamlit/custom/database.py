@@ -1,5 +1,6 @@
 import duckdb
 import streamlit as st
+import pandas as pd
 
 
 # Function to connect to DuckDB
@@ -12,11 +13,12 @@ def connect_to_duckdb(file_path):
         st.error(f"Error connecting to DuckDB: {e}")
         return None
 
-# Function to get the list of tables
-def get_tables(conn):
+
+# Function to get table information
+def get_table_info(conn):
     try:
-        query = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
-        return conn.execute(query).fetchall()
+        query = "SHOW ALL TABLES;"
+        return conn.execute(query).df()
     except Exception as e:
-        st.error(f"Error fetching table list: {e}")
-        return []
+        st.error(f"Error fetching table info: {e}")
+        return pd.DataFrame()
