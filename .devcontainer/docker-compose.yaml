@@ -28,7 +28,7 @@ services:
     volumes:
       #   # Update this to wherever you want VS Code to mount the folder of your project
       - ../src/dsp-streamlit:/home/workspaces/DSP-compose/dsp-streamlit/:cached
-      - ../src/dsp-dagster/storage/DSP.db:/home/workspaces/DSP-compose/DSP.db:cached
+      - ../src/dsp-dagster/storage/data-system-project.db:/home/workspaces/DSP-compose/data-system-project.db:cached
       - ../src/dsp-mlflow:/home/workspaces/DSP-compose/dsp-streamlit/mlflow:cached
     entrypoint: [./startup-script.sh]
     ports:

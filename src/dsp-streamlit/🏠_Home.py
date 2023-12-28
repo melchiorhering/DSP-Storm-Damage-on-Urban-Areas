@@ -2,25 +2,80 @@ import streamlit as st
 from custom.database import *
 
 
-st.title("DuckDB Tables Viewer")
+# Page Styling
+st.set_page_config(layout="wide")
 
-# Path to your DuckDB file
-db_file_path = "../DSP.db"
 
-# Connect to DuckDB
-conn = connect_to_duckdb(db_file_path)
+def main():
+    # Adding a sidebar for navigation
+    page = st.sidebar.selectbox("Choose a page", ["View Tables", "Usage Guide"])
 
-if conn:
-    # Get table information
-    table_info = get_table_info(conn)
+    # Path to your DuckDB file
+    db_file_path = "../data-system-project.db"
 
-    if not table_info.empty:
-        st.write("Table Information:")
-        st.dataframe(table_info, use_container_width=True)
-    else:
-        st.write("No table information found in the database.")
+    if page == "View Tables":
+        view_tables_page(db_file_path)
+    elif page == "Usage Guide":
+        usage_guide_page()
 
-    conn.close()
+
+def view_tables_page(db_file_path):
+    st.title("DuckDB Tables Viewer")
+    conn = connect_to_duckdb(db_file_path)
+
+    if conn:
+        # Get table information
+        table_info = get_table_info(conn)
+
+        if not table_info.empty:
+            st.write("Table Information:")
+            st.dataframe(table_info, use_container_width=True)
+        else:
+            st.write("No table information found in the database.")
+
+        conn.close()
+
+
+def usage_guide_page():
+    st.title("Usage Guide for Retrieving Data")
+
+    st.markdown(
+        """
+    ## How to Retrieve Data
+    To retrieve data from a specific table in the DuckDB database, use the `get_table_as_dataframe` function.
+
+    ### Function Syntax
+    ```python
+    get_table_as_dataframe(connection, table_name)
+    ```
+
+    - `connection`: A connection object to the DuckDB database, obtained via the `connect_to_duckdb` function.
+    - `table_name`: The name of the table you want to retrieve data from.
+
+    ### Example
+    ```python
+    conn = connect_to_duckdb("../data-system-project.db")
+    if conn:
+        data_frame = get_table_as_dataframe(conn, "your_table_name")
+        print(data_frame)
+        conn.close()
+    ```
+
+    ### Important Notes
+    - Ensure that the table name is correct and exists in the database.
+    - Always close the connection after you are done retrieving data to avoid database locking issues.
+    - Handle exceptions properly to catch and understand any errors during database operations.
+
+    ## Common Pitfalls
+    - Forgetting to close the database connection.
+    - Misspelling the table name.
+    - Not handling exceptions, which may lead to a lack of understanding of what went wrong during the operation.
+    """
+    )
+
+
+if __name__ == "__main__":
+    main()
 
 
 # Sample Data
