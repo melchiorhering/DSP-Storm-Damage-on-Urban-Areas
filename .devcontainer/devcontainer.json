@@ -4,12 +4,9 @@
 
   "name": "DSP: Workspace",
   "service": "workspace",
-  // "workspaceMount": "source=${localWorkspaceFolder},target=/workspace, type=bind, consistency=cached",
-  // "workspaceFolder": "${localWorkspaceFolder}",
   "workspaceFolder": "/home/workspaces/DSP-compose",
   "forwardPorts": ["3000:3000", "8501:8501", "5001:5001"],
   "shutdownAction": "stopCompose",
-
   "dockerComposeFile": ["docker-compose.yaml"],
 
   // "appPort": [3000, "8921:5000"],
