@@ -3,10 +3,28 @@ import pandas as pd
 from datetime import date
 import plotly.graph_objs as go
 import plotly.express as px
+from custom.database import *
 
-# from streamlit_folium import st_folium
 
-df = pd.read_csv("Storm_Data_Incidents.csv")
+st.title("DuckDB and Streamlit Example")
+
+# Path to your DuckDB file
+db_file_path = "../dsp-dagster/storage/DSP.db"
+
+# Connect to DuckDB
+conn = connect_to_duckdb(db_file_path)
+
+if conn:
+    # Execute a query
+    query = "SELECT * FROM your_table"
+    try:
+        df = conn.execute(query).df()
+        st.write(df.head())
+    except Exception as e:
+        st.error(f"Error executing query: {e}")
+    finally:
+        conn.close()
+
 
 # Sample Data
 areas = ["Area 1", "Area 2", "Area 3", "Area 4"]

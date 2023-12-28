@@ -56,9 +56,9 @@
       // "liveServer.settings.NoBrowser": true,
       // "liveServer.settings.port": 5000,
       "terminal.integrated.defaultProfile.linux": "zsh",
-      "git.autofetch": true,
-      "git.confirmSync": false,
-      "git.ignoreMissingGitWarning": true,
+      // "git.autofetch": true,
+      // "git.confirmSync": false,
+      // "git.ignoreMissingGitWarning": true,
       "prettier.bracketSameLine": true,
       "prettier.endOfLine": "auto",
       "editor.tabSize": 4,
@@ -95,7 +95,8 @@
         "streetsidesoftware.code-spell-checker",
         "redhat.fabric8-analytics",
         "bierner.github-markdown-preview",
-        "ms-python.isort"
+        "ms-python.isort",
+        "donjayamanne.python-environment-manager"
       ]
     }
   }
