@@ -1,9 +1,18 @@
+from typing import Union
 import streamlit as st
-from custom.database import *
+from pygwalker.api.streamlit import StreamlitRenderer, init_streamlit_comm
+from custom.database import connect_to_duckdb, get_table_info, get_table_as_dataframe
+
+import pandas as pd
+import polars as pl
 
 
 # Page Styling
 st.set_page_config(layout="wide")
+
+
+# Establish communication between pygwalker and streamlit
+init_streamlit_comm()
 
 
 def main():
@@ -19,6 +28,19 @@ def main():
         usage_guide_page()
 
 
+@st.cache_resource
+def get_pyg_renderer(df: Union[pl.DataFrame, pd.DataFrame]) -> StreamlitRenderer:
+    # When you need to publish your app to the public, you should set the debug parameter to False to prevent other users from writing to your chart configuration file.
+    return StreamlitRenderer(df, spec="./gw_config.json", debug=False)
+
+
+def showcase_data(df: Union[pl.DataFrame, pd.DataFrame]):
+    st.header("Use PyGWalker To Analyze data")
+    renderer = get_pyg_renderer(df)
+    # Render your data exploration interface. Developers can use it to build charts by drag and drop.
+    renderer.render_explore(width=1400)
+
+
 def view_tables_page(db_file_path):
     st.title("DuckDB Tables Viewer")
     conn = connect_to_duckdb(db_file_path)
@@ -30,8 +52,41 @@ def view_tables_page(db_file_path):
         if not table_info.empty:
             st.write("Table Information:")
             st.dataframe(table_info, use_container_width=True)
-        else:
-            st.write("No table information found in the database.")
+
+            # Create two columns for input
+            col1, col2 = st.columns(2)
+
+            with col1:
+                schema = st.selectbox(
+                    "Select a schema!",
+                    tuple(table_info["schema"].unique()),
+                    index=None,
+                    placeholder="Select schema...",
+                )
+
+                st.write("You selected:", schema)
+
+            with col2:
+                # Filter to only retrieve the right schema and (table)name combinations
+                df = table_info[table_info["schema"] == schema]
+
+                table = st.selectbox(
+                    "Select a table!",
+                    tuple(df["name"].unique()),
+                    index=None,
+                    placeholder="Select table...",
+                )
+                st.write("You selected:", table)
+
+            if schema and table:
+                df = get_table_as_dataframe(conn, schema, table)
+                if not df.empty:  # Changed this line
+                    showcase_data(df)
+
+                else:
+                    st.write(
+                        "⚠️ - No table information found in the database.",
+                    )
 
         conn.close()
 
@@ -46,17 +101,18 @@ def usage_guide_page():
 
     ### Function Syntax
     ```python
-    get_table_as_dataframe(connection, table_name)
+    get_table_as_dataframe(connection, schema, table_name)
     ```
 
     - `connection`: A connection object to the DuckDB database, obtained via the `connect_to_duckdb` function.
+    - `schema`: The schema name used for the table.
     - `table_name`: The name of the table you want to retrieve data from.
 
     ### Example
     ```python
     conn = connect_to_duckdb("../data-system-project.db")
     if conn:
-        data_frame = get_table_as_dataframe(conn, "your_table_name")
+        data_frame = get_table_as_dataframe(conn, <schema>, <your_table_name>)
         print(data_frame)
         conn.close()
     ```

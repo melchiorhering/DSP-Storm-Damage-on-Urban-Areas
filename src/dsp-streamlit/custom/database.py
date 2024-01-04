@@ -27,11 +27,12 @@ def get_table_info(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
 
 # Function to get a table as DataFrame
 def get_table_as_dataframe(
-    conn: duckdb.DuckDBPyConnection, table_name: str
+    conn: duckdb.DuckDBPyConnection, schema: str, table_name: str
 ) -> pd.DataFrame:
     try:
-        query = f"SELECT * FROM {table_name};"
+        print(schema, table_name)
+        query = f"SELECT * FROM {schema}.{table_name};"
         return conn.execute(query).df()
     except Exception as e:
-        st.error(f"Error fetching data from table {table_name}: {e}")
-        return pd.DataFrame()
+        st.error(f"Error fetching data from table {schema}.{table_name}: {e}")
+        return None
