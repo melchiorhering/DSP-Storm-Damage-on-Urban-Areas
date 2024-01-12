@@ -1,3 +1,5 @@
+import geopandas as gpd
+import polars as pl
 from dagster import (
     AssetExecutionContext,
     AssetIn,
@@ -5,8 +7,6 @@ from dagster import (
     asset,
     get_dagster_logger,
 )
-import polars as pl
-import geopandas as gpd
 from shapely.wkt import dumps
 
 
@@ -101,7 +101,7 @@ def incident_deployments_vehicles_wijken(
     :param pl.DataFrame deployment_incident_vehicles data: Joined FD data
     :return pl.DataFrame: Fire Department Data Table
     """
-    logger = get_dagster_logger()
+    get_dagster_logger()
 
     # Convert to pandas DataFrames
     incident_deployments_vehicles_pd = incident_deployments_vehicles.to_pandas()

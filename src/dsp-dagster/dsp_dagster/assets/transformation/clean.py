@@ -1,10 +1,5 @@
-from dagster import (
-    AssetExecutionContext,
-    AssetIn,
-    asset,
-    MetadataValue,
-)
 import polars as pl
+from dagster import AssetExecutionContext, AssetIn, MetadataValue, asset
 
 
 @asset(

@@ -1,14 +1,15 @@
-from dagster import (
-    asset,
-    Config,
-    get_dagster_logger,
-    AssetExecutionContext,
-    MetadataValue,
-    Failure,
-)
-import polars as pl
-import httpx
 import asyncio
+
+import httpx
+import polars as pl
+from dagster import (
+    AssetExecutionContext,
+    Config,
+    Failure,
+    MetadataValue,
+    asset,
+    get_dagster_logger,
+)
 from pydantic import Field
 
 

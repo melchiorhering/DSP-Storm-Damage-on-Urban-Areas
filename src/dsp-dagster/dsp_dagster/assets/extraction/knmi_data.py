@@ -1,16 +1,11 @@
+import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
-from pydantic import Field
-from dagster import (
-    asset,
-    Config,
-    AssetExecutionContext,
-    MetadataValue,
-)
 
-import polars as pl
 import httpx
-import asyncio
+import polars as pl
+from dagster import AssetExecutionContext, Config, MetadataValue, asset
+from pydantic import Field
 
 
 def datetime_now() -> int:

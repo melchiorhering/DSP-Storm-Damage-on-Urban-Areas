@@ -17,6 +17,3 @@ ENV PATH="/root/.local/bin:$PATH"
 
 # Disable creation of virtual environments by Poetry, as the container itself provides isolation
 RUN poetry config virtualenvs.create false
-
-
-

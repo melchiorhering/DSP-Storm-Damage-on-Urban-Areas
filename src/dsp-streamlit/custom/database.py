@@ -1,7 +1,8 @@
 from typing import Optional
+
 import duckdb
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
 
 # Function to connect to DuckDB

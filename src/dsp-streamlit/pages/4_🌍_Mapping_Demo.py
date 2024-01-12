@@ -1,7 +1,8 @@
-import streamlit as st
+from urllib.error import URLError
+
 import pandas as pd
 import pydeck as pdk
-from urllib.error import URLError
+import streamlit as st
 
 st.set_page_config(page_title="Mapping Demo", page_icon="🌍")
 

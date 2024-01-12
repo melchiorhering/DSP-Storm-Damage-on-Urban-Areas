@@ -1,12 +1,10 @@
 import os
+
 from dagster import Definitions
-from .assets import (
-    extraction_assets,
-    transformation_assets,
-    model_assets,
-)
+
+from .assets import extraction_assets, model_assets, transformation_assets
+from .jobs import extract_data, run_models, transform_data
 from .resources import LOCAL_RESOURCE
-from .jobs import extract_data, transform_data, run_models
 
 all_assets = [
     *extraction_assets,

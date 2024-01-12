@@ -1,3 +1,8 @@
+from urllib.parse import quote
+
+import geopandas as gpd
+import pandas as pd
+import polars as pl
 from dagster import (
     AssetExecutionContext,
     Config,
@@ -7,10 +12,6 @@ from dagster import (
 )
 from pydantic import Field
 from requests import request
-from urllib.parse import quote
-import geopandas as gpd
-import pandas as pd
-import polars as pl
 from shapely.wkt import dumps
 
 
@@ -155,7 +156,7 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
     """
 
     # URL-encode the filter
-    encoded_filter = quote(filter_xml)
+    quote(filter_xml)
 
     # Set up request parameters, including the filter
     params = {
@@ -220,7 +221,7 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
     """
 
     # URL-encode the filter
-    encoded_filter = quote(filter_xml)
+    quote(filter_xml)
 
     # Set up request parameters, including the filter
     params = {

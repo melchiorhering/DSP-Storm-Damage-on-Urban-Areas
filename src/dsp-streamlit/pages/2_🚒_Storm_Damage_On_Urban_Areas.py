@@ -1,7 +1,6 @@
 import streamlit as st
 from custom.database import connect_to_duckdb, get_table_as_dataframe
 
-
 # Page Styling
 st.set_page_config(layout="wide")
 

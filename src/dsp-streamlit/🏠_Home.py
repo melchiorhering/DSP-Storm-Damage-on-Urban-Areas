@@ -1,11 +1,10 @@
 from typing import Union
-import streamlit as st
-from pygwalker.api.streamlit import StreamlitRenderer, init_streamlit_comm
-from custom.database import connect_to_duckdb, get_table_info, get_table_as_dataframe
 
 import pandas as pd
 import polars as pl
-
+import streamlit as st
+from custom.database import connect_to_duckdb, get_table_as_dataframe, get_table_info
+from pygwalker.api.streamlit import StreamlitRenderer, init_streamlit_comm
 
 # Page Styling
 st.set_page_config(layout="wide")
@@ -20,7 +19,7 @@ def main():
     page = st.sidebar.selectbox("Choose a page", ["View Tables", "Usage Guide"])
 
     # Path to your DuckDB file
-    db_file_path = "../data-system-project.db"
+    db_file_path = "./data-system-project.db"
 
     if page == "View Tables":
         view_tables_page(db_file_path)
@@ -38,7 +37,7 @@ def showcase_data(df: Union[pl.DataFrame, pd.DataFrame]):
     st.header("Use PyGWalker To Analyze data")
     renderer = get_pyg_renderer(df)
     # Render your data exploration interface. Developers can use it to build charts by drag and drop.
-    renderer.render_explore(width=1400)
+    renderer.render_explore(width=1600)
 
 
 def view_tables_page(db_file_path):
