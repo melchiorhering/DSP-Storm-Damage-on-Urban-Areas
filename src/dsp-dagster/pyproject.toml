@@ -29,3 +29,5 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 # Additional options for setuptools can be specified here
+[tool.dagster]
+module_name = "dsp_dagster"
