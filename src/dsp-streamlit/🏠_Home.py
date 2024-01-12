@@ -19,7 +19,7 @@ def main():
     page = st.sidebar.selectbox("Choose a page", ["View Tables", "Usage Guide"])
 
     # Path to your DuckDB file
-    db_file_path = "./data_system_project.duckdb"
+    db_file_path = "data_systems_project.duckdb"
 
     if page == "View Tables":
         view_tables_page(db_file_path)
