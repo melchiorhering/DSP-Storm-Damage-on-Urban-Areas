@@ -63,8 +63,8 @@ selected_hour = st.sidebar.slider("Select Hour", 0, 23, value=23)  # Values will
 df_incidents['Hour'] = pd.to_datetime(df_incidents['Incident_Starttime'], format='%H:%M:%S').dt.hour
 df_accumulated = df_incidents[(df_incidents['Date'] == selected_date.strftime('%Y-%m-%d')) & (df_incidents['Hour'] <= selected_hour)]
 
-damage_type = df_incidents['Damage_Type'].unique()
 
+damage_type = df_incidents['Damage_Type'].unique()
 df_knmi_selected = df_knmi[df_knmi['Date'] == selected_date.strftime('%Y-%m-%d')]
 
 # Convert df_serviceareas into gpd
@@ -102,7 +102,6 @@ def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
                                 zoom=9.7,
                                 custom_data=[gdf['Verzorgingsgebied']]
                                 )
-        
         
         # Adjust the border color for polygons
         fig.update_traces(marker_line_width=2, marker_line_color="grey",  hovertemplate="<b>%{customdata[0]}</b><extra></extra>")
@@ -330,37 +329,6 @@ else:
     with col2:
         st.plotly_chart(fig_df, use_container_width=False)
 
-
-
-        # st.markdown("<br>", unsafe_allow_html=True)  # Adjust the number of <br> tags to control the space
-        # st.markdown("""
-        #     <style>
-        #     .dataframe-title {
-        #         font-size: 16px;
-        #         font-weight: bold;
-        #         text-align: left;
-        #         margin-bottom: 10px;
-        #     }
-        #     </style>
-        #     <div class="dataframe-title">Total Incidents per Service Area</div>
-        #     """, unsafe_allow_html=True)
-            
-        # max_incidents = daily_damage_area['Incidents'].max()
-
-        # # Modify this part based on your Streamlit version and available features
-        # st.dataframe(daily_damage_area,
-        #             column_order=("Service_Area", "Incidents"),
-        #             hide_index=True,
-        #             column_config={
-        #                 "Service_Area": st.column_config.TextColumn("Service Area"),
-        #                 "Incidents": st.column_config.ProgressColumn(
-        #                     "Incidents",
-        #                     format="%f",
-        #                     min_value=0,
-        #                     max_value=max_incidents,
-        #                 )}
-
-        #             )
     # Arrange the histogram and donut chart side by side in Streamlit
     col3, col4 = st.columns([3,1])  # adjust the ratio as needed for your layout
     with col4:
@@ -393,23 +361,39 @@ else:
 
     # Function to convert degrees to cardinal directions
     def degrees_to_direction(deg):
-        if 337.5 <= deg or deg <= 22.5:
+        if 348.75 <= deg or deg <= 11.25:
             return 'N'
-        elif 22.5 < deg <= 67.5:
+        elif 11.25 < deg <= 33.75:
+            return 'NNE'
+        elif 33.75 < deg <= 56.25:
             return 'NE'
-        elif 67.5 < deg <= 112.5:
+        elif 56.25 < deg <= 78.75:
+            return 'ENE'
+        elif 78.75 < deg <= 101.25:
             return 'E'
-        elif 112.5 < deg <= 157.5:
+        elif 101.25 < deg <= 123.75:
+            return 'ESE'
+        elif 123.75 < deg <= 146.25:
             return 'SE'
-        elif 157.5 < deg <= 202.5:
+        elif 146.25 < deg <= 168.75:
+            return 'SSE'
+        elif 168.75 < deg <= 191.25:
             return 'S'
-        elif 202.5 < deg <= 247.5:
+        elif 191.25 < deg <= 213.75:
+            return 'SSW'
+        elif 213.75 < deg <= 236.25:
             return 'SW'
-        elif 247.5 < deg <= 292.5:
+        elif 236.25 < deg <= 258.75:
+            return 'WSW'
+        elif 258.75 < deg <= 281.25:
             return 'W'
-        elif 292.5 < deg <= 337.5:
+        elif 281.25 < deg <= 303.75:
+            return 'WNW'
+        elif 303.75 < deg <= 326.25:
             return 'NW'
-
+        elif 326.25 < deg <= 348.75:
+            return 'NNW'
+        
     # Apply the function to the DataFrame
     df_knmi_selected['Direction'] = df_knmi_selected['Dd'].apply(degrees_to_direction)
 
@@ -476,8 +460,28 @@ else:
                                 color="Force",
                                 template="plotly_dark",
                                 color_discrete_sequence=px.colors.sequential.swatches_continuous(),
-                                category_orders={'Direction': ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']},
-                                custom_data=['Ff','Force'])  # Customize hover labels
+                                category_orders={'Direction': ["N",   # North
+                                    "NNE", # North-Northeast
+                                    "NE",  # Northeast
+                                    "ENE", # East-Northeast
+                                    "E",   # East
+                                    "ESE", # East-Southeast
+                                    "SE",  # Southeast
+                                    "SSE", # South-Southeast
+                                    "S",   # South
+                                    "SSW", # South-Southwest
+                                    "SW",  # Southwest
+                                    "WSW", # West-Southwest
+                                    "W",   # West
+                                    "WNW", # West-Northwest
+                                    "NW",  # Northwest
+                                    "NNW"  # North-Northwest
+                                ]},
+                                barnorm = 'percent',
+                                custom_data=['Ff','Force']
+    )  
+    
+    # Customize hover labels
 
     fig_windrose.update_traces(
         hovertemplate="<br>".join([
@@ -519,17 +523,23 @@ else:
     fig_weather_condition.update_layout(
         title='Weather Conditions per Hour',
         xaxis_title='Hour',
-        yaxis_title='Condition Occurrence (0 or 1)',
+        # yaxis_title='Condition Occurrence (0 or 1)',
         yaxis=dict(
             tickmode='array',
             tickvals=[0, 1],
             ticktext=['No', 'Yes']
         )
+        , title_x=0.38
+        , width = 1025
+        , height = 400
+        , margin=dict(l=65)
     )
     
     # Display in Streamlit
     col7,col8 = st.columns([3,1])
     with col7:
-        st.plotly_chart(fig_weather_condition, use_container_width=True)
+        st.plotly_chart(fig_weather_condition, use_container_width=False)
 
-st.sidebar.image('brandweerlogozwart.png', use_column_width=True)
+
+
+# st.sidebar.image('brandweerlogozwart.png', use_column_width=True)
