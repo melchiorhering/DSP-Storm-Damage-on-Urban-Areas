@@ -3,7 +3,7 @@ compute_logs:
   class: LocalComputeLogManager
   config:
     base_dir:
-      env: LOCAL_COMPUTE_LOG_MANAGER_DIRECTORY
+      env: LOCAL_COMPUTE_LOG_MANAGER_DIR
 
 local_artifact_storage:
   module: dagster.core.storage.root

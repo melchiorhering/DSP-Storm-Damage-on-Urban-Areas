@@ -1,6 +1,8 @@
 import asyncio
 
+import geopandas as gpd
 import httpx
+import pandas as pd
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -27,7 +29,7 @@ class GemeenteAmsterdamAPI(Config):
     fmt: str = Field(
         title="Output-Format",
         description="Sets the output format of the API-endpoint",
-        default="json",
+        default="geojson",
     )
     count: str = Field(
         title="Give-Data-Count",
@@ -38,7 +40,7 @@ class GemeenteAmsterdamAPI(Config):
     pageSize: int = Field(
         title="Page-Size",
         description="Sets page size for the returned data",
-        default=5000,
+        default=2000,
     )
 
 
@@ -61,30 +63,75 @@ class Grond(GemeenteAmsterdamAPI):
 class GrondWater(GemeenteAmsterdamAPI):
     url: str = Field(
         title="Grond Water-API-url",
-        description="Endpoint used for retrieving `Grondwater` data; information can be found here: https://api.data.amsterdam.nl/v1/docs/datasets/bodem.html",
+        description="Endpoint used for retrieving `Grondwater` data; information can be found here: https://api.data.amsterdam.nl/v1/docs/datasets/bodem.html#grondwater",
         default_factory=lambda: create_url("/v1/bodem/grondwater/"),
     )
 
 
-async def fetch_data(
-    session, logger, complete_endpoint, params, current_page, total_pages
+async def fetch_data(session, logger, url, params, page):
+    """
+    Asynchronously fetch data for a specific page.
+    """
+    response = await session.get(url, params={**params, "page": page})
+    if response.status_code != 200:
+        raise Failure(
+            description=f"Received non-200 status code [{response.status_code}]",
+            metadata={
+                "api_url": MetadataValue.url(str(response.url)),
+                "errored_page": MetadataValue.int(page),
+                "params": MetadataValue.json(params),
+            },
+        )
+    logger.info(f"[PAGE] {page} | [RETRIEVED]")
+    return response.json()
+
+
+async def fetch_data_chunk(session, logger, url, params, start_page, end_page):
+    """
+    Fetch a chunk of pages.
+    """
+    tasks = [
+        fetch_data(session, logger, url, params, page)
+        for page in range(start_page, end_page + 1)
+    ]
+    chunk_results = await asyncio.gather(*tasks)
+    return [item for sublist in chunk_results for item in sublist]
+
+
+async def fetch_all_data(
+    session, logger, url, params, total_pages, chunk_size=15, delay=10
 ):
-    params["page"] = current_page
-    response = await session.get(complete_endpoint, params=params, timeout=240)
-    if response.status_code == 200:
-        logger.info(f"[PAGE] {current_page} | {total_pages} [RETRIEVED]")
+    """
+    Fetch all pages of data in chunks with a delay between each chunk.
+    """
+    all_data = []
+    for start_page in range(1, total_pages + 1, chunk_size):
+        end_page = min(start_page + chunk_size - 1, total_pages)
+        logger.info(f"Fetching pages {start_page} to {end_page}")
+        data_chunk = await fetch_data_chunk(
+            session, logger, url, params, start_page, end_page
+        )
+        all_data.extend(data_chunk)
 
-        data = response.json()
-        return data["_embedded"]["stamgegevens"]
+        # Wait for a specified delay time before fetching the next chunk
+        if end_page < total_pages:
+            await asyncio.sleep(delay)
 
-    raise Failure(
-        description=f"Received non-200 status code [{response.status_code}]",
-        metadata={
-            "api_url": MetadataValue.url(str(response.url)),
-            "errored_page": MetadataValue.int(current_page),
-            "params": MetadataValue.json(params),
-        },
-    )
+    return all_data
+
+
+def convert_to_geopandas(data):
+    """
+    Convert data to a GeoPandas DataFrame and perform transformations.
+    """
+    gdf = gpd.GeoDataFrame.from_features(data, crs="EPSG:28992").to_crs("EPSG:4326")
+
+    print(gdf.columns)
+    print(gdf.head())
+    gdf["latitude"] = gdf.geometry.y
+    gdf["longitude"] = gdf.geometry.x
+    gdf.drop(columns=["geometry"], inplace=True)
+    return gdf
 
 
 @asset(
@@ -93,12 +140,8 @@ async def fetch_data(
 )
 async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFrame:
     """
-    Function that retrieves tree data from the Gemeente Amsterdam API
-
-    :param AssetExecutionContext context: Dagster context
-    :param GA_Bomen config: Parmas for the `Bomen` API
-    :raises Failure: Failure when the async function fails
-    :return pl.DataFrame: Amsterdam Trees dataset
+    Asynchronously retrieves tree data from the Gemeente Amsterdam API
+    and converts it to a Polars DataFrame.
     """
     logger = get_dagster_logger()
 
@@ -107,54 +150,89 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
         "_count": config.count,
         "_pageSize": config.pageSize,
     }
-
     logger.info(f"Using {params}")
 
-    async with httpx.AsyncClient() as session:
-        response = await session.get(config.url, params=params, timeout=240)
-        if response.status_code == 200:
-            logger.info(response.headers)
-            current_page = int(response.headers["x-pagination-page"])
-            total_count = int(response.headers["x-total-count"])
-            total_pages = int(response.headers["x-pagination-count"])
+    async with httpx.AsyncClient(verify=False, timeout=460) as session:
+        initial_response = await session.get(config.url, params=params)
 
-            logger.info(f"Total number of data (trees): {total_count}")
-            logger.info(
-                f"Using _pageSize={params['_pageSize']} will result in {total_pages} pages"
-            )
-
-            data = response.json()
-            final_data = data["_embedded"]["stamgegevens"]
-
-            tasks = [
-                fetch_data(session, logger, config.url, params, page, total_pages)
-                for page in range(2, total_pages + 1)
-            ]
-
-            fetched_data = await asyncio.gather(*tasks)
-
-            for data in fetched_data:
-                final_data.extend(data)
-        else:
+        if initial_response.status_code != 200:
             raise Failure(
-                description=f"Received non-200 status code [{response.status_code}]",
+                description=f"Received non-200 status code [{initial_response.status_code}]",
                 metadata={
-                    "api_url": MetadataValue.url(str(response.url)),
-                    "total-pages": MetadataValue.text(total_pages),
-                    "total-count": MetadataValue.text(total_count),
-                    "errored_page": MetadataValue.int(current_page),
+                    "api_url": MetadataValue.url(str(initial_response.url)),
                     "params": MetadataValue.json(params),
                 },
             )
 
-    df = pl.from_dicts(final_data)
+        total_pages = int(initial_response.headers["x-pagination-count"])
+        logger.info(f"Total pages: {total_pages}")
+
+        all_data = await fetch_all_data(
+            session, logger, config.url, params, total_pages
+        )
+
+        gdf = convert_to_geopandas(all_data)
+        pdf = pd.DataFrame(gdf)
+        pl_df = pl.DataFrame(pdf)
+
     context.add_output_metadata(
         metadata={
-            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
-            "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-            # The `MetadataValue` class has useful static methods to build Metadata
+            "describe": MetadataValue.md(pdf.describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(pl_df.columns)),
+            "preview": MetadataValue.md(pl_df.head().to_pandas().to_markdown()),
         }
     )
 
-    return df
+    return pl_df
+
+
+@asset(
+    name="grond_data",
+    io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
+)
+async def grond_data(context: AssetExecutionContext, config: Grond) -> pl.DataFrame:
+    """
+    Asynchronously retrieves tree data from the Gemeente Amsterdam API
+    and converts it to a Polars DataFrame.
+    """
+    logger = get_dagster_logger()
+
+    params = {
+        "_format": config.fmt,
+        "_count": config.count,
+        "_pageSize": config.pageSize,
+    }
+    logger.info(f"Using {params}")
+
+    async with httpx.AsyncClient(verify=False, timeout=460) as session:
+        initial_response = await session.get(config.url, params=params)
+
+        if initial_response.status_code != 200:
+            raise Failure(
+                description=f"Received non-200 status code [{initial_response.status_code}]",
+                metadata={
+                    "api_url": MetadataValue.url(str(initial_response.url)),
+                    "params": MetadataValue.json(params),
+                },
+            )
+
+        total_pages = int(initial_response.headers["x-pagination-count"])
+        logger.info(f"Total pages: {total_pages}")
+
+        all_data = await fetch_all_data(
+            session, logger, config.url, params, total_pages
+        )
+
+        gdf = convert_to_geopandas(all_data)
+        pdf = pd.DataFrame(gdf)
+        pl_df = pl.DataFrame(pdf)
+
+    context.add_output_metadata(
+        metadata={
+            "describe": MetadataValue.md(pdf.describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(pl_df.columns)),
+            "preview": MetadataValue.md(pl_df.head().to_pandas().to_markdown()),
+        }
+    )
+
+    return pl_df

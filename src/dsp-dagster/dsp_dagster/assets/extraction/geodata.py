@@ -44,7 +44,7 @@ class PDOK(Config):
     )
     outputFormat: str = Field(
         title="Output-Format",
-        examples=["application/json; subtype=geojson", "application/json"],
+        examples=["application/json subtype=geojson", "application/json"],
         default="application/json",
     )
     srsName: str = Field(
@@ -85,6 +85,25 @@ class PDOK_CBS(PDOK):
     # )
 
 
+def fetch_wfs_data(url, params, logger):
+    """
+    Fetch data from a WFS endpoint.
+    """
+    response = request("GET", url, params=params, timeout=240)
+    response.raise_for_status()
+    logger.info(response.url)
+    return response.json()
+
+
+def convert_to_polars(gdf):
+    """
+    Convert a GeoDataFrame to a Polars DataFrame.
+    """
+    # Efficiently convert geometries to string if needed
+    gdf["geometry"] = gdf["geometry"].apply(dumps)  # Consider if this step is necessary
+    return pl.from_pandas(pd.DataFrame(gdf))
+
+
 @asset(
     name="bag_panden",
     io_manager_key="database_io_manager",
@@ -105,29 +124,22 @@ def bag_panden(context, config: PDOK_BAG) -> pl.DataFrame:
         "srsName": config.srsName,
     }
 
-    response = request("GET", config.bag_url, params=params, timeout=240)
-    logger.info(response.url)
+    data = fetch_wfs_data(config.bag_url, params, logger)
+    gdf = gpd.GeoDataFrame.from_features(data)
 
-    if response.status_code == 200:
-        data = response.json()
-        # Read Feature Collection to Geopandas df, then transform to Pandas
-        gdf = gpd.GeoDataFrame.from_features(data)
-        gdf["geometry"] = gdf["geometry"].apply(dumps)
-        logger.info(gdf.head())
-        df = pl.from_pandas(pd.DataFrame(gdf))
+    logger.info(gdf.head(10))
+    df = convert_to_polars(gdf)
+    context.add_output_metadata(
+        metadata={
+            # "metadata": MetadataValue.json(data),
+            # "describe": MetadataValue.md(df.describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
 
-        context.add_output_metadata(
-            metadata={
-                # "metadata": MetadataValue.json(data),
-                # "describe": MetadataValue.md(df.describe().to_markdown()),
-                "number_of_columns": MetadataValue.int(len(df.columns)),
-                "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
-                # The `MetadataValue` class has useful static methods to build Metadata
-            }
-        )
-
-        return df
-    response.raise_for_status()
+    return df
 
 
 @asset(
@@ -147,16 +159,31 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
 
     # Construct the filter XML on Gemeente Amsterdam
     filter_xml = """
-    <Filter>
-        <PropertyIsEqualTo>
-            <PropertyName>gemeentenaam</PropertyName>
-            <Literal>Amsterdam</Literal>
-        </PropertyIsEqualTo>
-    </Filter>
-    """
-
-    # URL-encode the filter
-    quote(filter_xml)
+        <Filter>
+            <Or>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Zaanstad</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Diemen</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Ouder-Amstel</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Amstelveen</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Amsterdam</Literal>
+                </PropertyIsEqualTo>
+            </Or>
+        </Filter>
+        """
 
     # Set up request parameters, including the filter
     params = {
@@ -166,33 +193,24 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
         "outputFormat": config.outputFormat,
         "typeName": "wijkenbuurten:wijken",
         "srsName": config.srsName,
-        "filter": filter_xml,  # Add the encoded filter here
+        "filter": filter_xml,  # URL-encode the filter
     }
-    response = request("GET", config.cbs_url, params=params, timeout=240)
-    logger.info(response.url)
+    data = fetch_wfs_data(config.cbs_url, params, logger)
+    gdf = gpd.GeoDataFrame.from_features(data)
+    logger.info(gdf.head(10))
+    df = convert_to_polars(gdf)
 
-    if response.status_code == 200:
-        data = response.json()
-
-        # Read Feature Collection to Geopandas df, then transform to Pandas
-        gdf = gpd.GeoDataFrame.from_features(data)
-        gdf["geometry"] = gdf["geometry"].apply(dumps)
-        logger.info(gdf.head())
-        df = pl.from_pandas(pd.DataFrame(gdf))
-
-        context.add_output_metadata(
-            metadata={
-                # "metadata": MetadataValue.json(data),
-                # "url_used": MetadataValue.text(response.url),
-                # "describe": MetadataValue.md(df.describes().to_markdown()),
-                "number_of_columns": MetadataValue.int(len(df.columns)),
-                "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
-                # The `MetadataValue` class has useful static methods to build Metadata
-            }
-        )
-        return df
-
-    response.raise_for_status()
+    context.add_output_metadata(
+        metadata={
+            # "metadata": MetadataValue.json(data),
+            # "url_used": MetadataValue.text(response.url),
+            # "describe": MetadataValue.md(df.describes().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+    return df
 
 
 @asset(
@@ -212,15 +230,32 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
 
     # Construct the filter XML on Gemeente Amsterdam
     filter_xml = """
-    <Filter>
-        <PropertyIsEqualTo>
-            <PropertyName>gemeentenaam</PropertyName>
-            <Literal>Amsterdam</Literal>
-        </PropertyIsEqualTo>
-    </Filter>
-    """
+        <Filter>
+            <Or>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Zaanstad</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Diemen</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Ouder-Amstel</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Amstelveen</Literal>
+                </PropertyIsEqualTo>
+                <PropertyIsEqualTo>
+                    <PropertyName>gemeentenaam</PropertyName>
+                    <Literal>Amsterdam</Literal>
+                </PropertyIsEqualTo>
+            </Or>
+        </Filter>
+        """
 
-    # URL-encode the filter
     quote(filter_xml)
 
     # Set up request parameters, including the filter
@@ -231,30 +266,21 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
         "outputFormat": config.outputFormat,
         "typeName": "wijkenbuurten:buurten",
         "srsName": config.srsName,
-        "filter": filter_xml,  # Add the encoded filter here
+        "filter": filter_xml,  # URL-encode the filter
     }
-    response = request("GET", config.cbs_url, params=params, timeout=240)
-    logger.info(response.url)
+    data = fetch_wfs_data(config.cbs_url, params, logger)
+    gdf = gpd.GeoDataFrame.from_features(data)
+    logger.info(gdf.head(10))
+    df = convert_to_polars(gdf)
 
-    if response.status_code == 200:
-        data = response.json()
-
-        # Read Feature Collection to Geopandas df, then transform to Pandas
-        gdf = gpd.GeoDataFrame.from_features(data)
-        gdf["geometry"] = gdf["geometry"].apply(dumps)
-        logger.info(gdf.head())
-        df = pl.from_pandas(pd.DataFrame(gdf))
-
-        context.add_output_metadata(
-            metadata={
-                # "metadata": MetadataValue.json(data),
-                # "url_used": MetadataValue.text(response.url),
-                # "describe": MetadataValue.md(df.describes().to_markdown()),
-                "number_of_columns": MetadataValue.int(len(df.columns)),
-                "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
-                # The `MetadataValue` class has useful static methods to build Metadata
-            }
-        )
-        return df
-
-    response.raise_for_status()
+    context.add_output_metadata(
+        metadata={
+            # "metadata": MetadataValue.json(data),
+            # "url_used": MetadataValue.text(response.url),
+            # "describe": MetadataValue.md(df.describes().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+    return df

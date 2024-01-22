@@ -31,7 +31,7 @@ def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
             ),
             "min_date": MetadataValue.text(
                 df.select("Date").min().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
-            )
+            ),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
