@@ -63,22 +63,16 @@ def incident_deployments_vehicles_wijken(
     """
     logger = get_dagster_logger()
 
-    logger.info(storm_incidents.columns)
-
-    logger.info(cbs_buurten.columns)
-
-    # Create a GeoDataFrame directly using points_from_xy
-    storm_incidents = gpd.GeoDataFrame(
-        storm_incidents,
-        geometry=gpd.points_from_xy(storm_incidents["LON"], storm_incidents["LAT"]),
-    )
     # Create a GeoDataFrame from wkb format
+    storm_incidents = convert_to_geodf(storm_incidents)
     cbs_buurten = convert_to_geodf(cbs_buurten)
+    logger.info(storm_incidents.columns)
+    logger.info(cbs_buurten.columns)
 
     if storm_incidents.crs != cbs_buurten.crs:
         storm_incidents = storm_incidents.to_crs(cbs_buurten.crs)
 
-    joined_data = gpd.sjoin(storm_incidents, cbs_buurten, how="left", op="within")
+    joined_data = storm_incidents.sjoin(cbs_buurten, how="left", op="within")
 
     df = convert_to_polars(joined_data)
 

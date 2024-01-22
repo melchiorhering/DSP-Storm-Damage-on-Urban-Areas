@@ -5,6 +5,12 @@ description = "Whole DSP project for the Fire Department Amsterdam/Amstelland. T
 authors = ["Stijn Hering <stijn@hering.nl>"]
 readme = "README.md"
 
+
+[tool.jupysql.SqlMagic]
+displaycon = false
+feedback = true
+autopandas = true
+
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F"]

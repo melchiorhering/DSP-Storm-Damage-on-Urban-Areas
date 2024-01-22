@@ -21,6 +21,15 @@ def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
         null_values=["NULL"],
         try_parse_dates=True,
     )
+
+    df = df.to_pandas()
+
+    # Read LON and LAT
+    df["geometry"] = gpd.points_from_xy(df["LON"], df["LAT"])
+    gdf = gpd.GeoDataFrame(df, geometry="geometry").drop(columns=["LON", "LAT"])
+    gdf["geometry"] = gdf["geometry"].apply(dumps)
+    df = pl.from_pandas(pd.DataFrame(gdf))
+
     context.add_output_metadata(
         metadata={
             "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
