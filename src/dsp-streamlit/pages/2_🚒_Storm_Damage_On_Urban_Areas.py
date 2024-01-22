@@ -12,6 +12,7 @@ import geopandas as gpd
 import geodatasets
 import plotly.express as px
 import plotly.graph_objects as go
+from shapely.geometry import Point
 import time
 from custom.database import connect_to_duckdb, get_table_as_dataframe
 
@@ -36,6 +37,13 @@ df_incidents = get_table_as_dataframe(
     conn=conn, schema="cleaned", table_name="cleaned_storm_incidents"
 )
 
+df_wijken = get_table_as_dataframe(
+    conn=conn, schema="public", table_name="cbs_wijken"
+)
+
+df_buurten = get_table_as_dataframe(
+    conn=conn, schema="public", table_name="cbs_buurten"
+)
 
 incident_counts = df_incidents["Date"].value_counts()
 dates_with_20_or_more_incidents = incident_counts[incident_counts >= 20].index
@@ -72,54 +80,84 @@ df_accumulated = df_incidents[
     & (df_incidents["Hour"] <= selected_hour)
 ]
 
+map_view_levels = ['Incident Level', 'Service Area Level', 'Wijken Level', 'Buurten Level']
+# Map Selection
+st.sidebar.header("Map View")
+selected_view = st.sidebar.selectbox(
+    "Select Map View", map_view_levels
+)
 
 damage_type = df_incidents["Damage_Type"].unique()
 df_knmi_selected = df_knmi[df_knmi["Date"] == selected_date.strftime("%Y-%m-%d")]
 
 # Convert df_serviceareas into gpd
 df_service_areas["geometry"] = df_service_areas["geometry"].apply(wkt.loads)
-gdf = gpd.GeoDataFrame(df_service_areas, geometry="geometry")
+gdf_service_areas = gpd.GeoDataFrame(df_service_areas, geometry="geometry")
 
 # Set the CRS to EPSG:28992 for RD New (Rijksdriehoekstelsel)
-gdf.set_crs("EPSG:28992", inplace=True)
+gdf_service_areas.set_crs("EPSG:28992", inplace=True)
 
 # Convert it to EPSG:4326
-gdf = gdf.to_crs(epsg=4326)
+gdf_service_areas = gdf_service_areas.to_crs(epsg=4326)
+
+# Convert df_wijken into gpd
+df_wijken["geometry"] = df_wijken["geometry"].apply(wkt.loads)
+gdf_wijken = gpd.GeoDataFrame(df_wijken, geometry="geometry")
+# gdf_wijken.set_crs("EPSG:28992", inplace=True)
+# gdf_wijken = gdf_wijken.to_crs(epsg=4326)
+gdf_wijken.drop(0, inplace=True)
+
+# Convert df_buurten into gpd
+df_buurten["geometry"] = df_buurten["geometry"].apply(wkt.loads)
+gdf_buurten = gpd.GeoDataFrame(df_buurten, geometry="geometry")
+gdf_buurten.drop([0,1], inplace=True) 
 
 # Filter the DataFrame for the selected date
 df_filtered = df_incidents[df_incidents["Date"] == selected_date.strftime("%Y-%m-%d")]
 
 
-# Function to display the map using Plotly in Streamlit
-def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
-    show_intensity = st.checkbox("Show Intensity of Service Areas")
+gdf_incidents_accumulated = gpd.GeoDataFrame(df_accumulated, geometry=gpd.points_from_xy(df_accumulated.LON, df_accumulated.LAT))
 
-    if show_intensity == 1:
+# Voer een geospatiale join uit
+joined_df = gpd.sjoin(gdf_incidents_accumulated, gdf_wijken, how="left", op="within")
+joined_df_final = gpd.sjoin(gdf_incidents_accumulated, gdf_buurten, how="left", op="within")
+
+
+df_accumulated['Wijk'] = joined_df['wijknaam']
+df_accumulated['Buurt'] = joined_df_final['buurtnaam']
+
+
+
+# Function to display the map using Plotly in Streamlit
+def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_accumulated, damage_type):
+    # show_intensity = st.checkbox("Show Intensity of Service Areas")
+
+    if selected_view == 'Service Area Level':
         # Convert GeoDataFrame to GeoJSON format
-        geojson = gdf.geometry.__geo_interface__
-        gdf = pd.merge(
+        geojson = gdf_service_areas.geometry.__geo_interface__
+        gdf_service_areas = pd.merge(
             df_accumulated.groupby("Service_Area")
             .size()
             .reset_index(name="Total Incidents"),
-            gdf,
+            gdf_service_areas,
             left_on="Service_Area",
             right_on="Verzorgingsgebied",
             how="right",
         )
-        gdf.drop("Service_Area", axis=1, inplace=True)
+        gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
 
         # Create a base map
         fig = px.choropleth_mapbox(
-            gdf,
+            gdf_service_areas,
             geojson=geojson,
-            locations=gdf.index,
+            locations=gdf_service_areas.index,
             color="Total Incidents",  # using the dummy column here
             color_continuous_scale=px.colors.sequential.Reds,
             opacity=0.40,
             center={"lat": 52.320001, "lon": 4.87278},
             mapbox_style="carto-darkmatter",
             zoom=9.7,
-            custom_data=[gdf["Verzorgingsgebied"]],
+            custom_data=[gdf_service_areas["Verzorgingsgebied"]],
         )
 
         # Adjust the border color for polygons
@@ -137,28 +175,136 @@ def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
                 yanchor="top",
                 y=0.99,
                 xanchor="left",
-                x=0.01,
-                itemsizing="constant",  # Ensures symbols in legend remain small
-            )
+                x=0.01,  # Position the legend close to the left edge
+                itemsizing="constant"  # Ensures symbols in legend remain small
+            ),        
+            margin={"r": 0, "t": 0, "l": 0, "b": 0}
         )
-
-        # Update layout as needed
-        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
 
         # Display the figure in Streamlit
         st.plotly_chart(fig, use_container_width=True)
 
-    if show_intensity == 0:
+    if selected_view == 'Buurten Level':
         # Convert GeoDataFrame to GeoJSON format
-        geojson = gdf.geometry.__geo_interface__
+        geojson = gdf_buurten.geometry.__geo_interface__
+        # gdf_buurten = pd.merge(
+        #     df_accumulated.groupby("Buurt")
+        #     .size()
+        #     .reset_index(name="Total Incidents"),
+        #     gdf_service_areas,
+        #     left_on="Buurt",
+        #     right_on="buurtnaam",
+        #     how="right",
+        # )
+        # gdf_buurten.drop("buurtnaam", axis=1, inplace=True)
 
-        gdf["dummy"] = 1
+        gdf_buurten['dummy'] = 1
+
+        fig = px.choropleth_mapbox(
+            gdf_buurten,
+            geojson=geojson,
+            locations=gdf_buurten.index,
+            color="dummy",  # using the dummy column here
+            color_continuous_scale=px.colors.sequential.Reds,
+            opacity=0.40,
+            center={"lat": 52.3550001, "lon": 4.8678},
+            mapbox_style="carto-darkmatter",
+            zoom=10.2,
+            custom_data=[gdf_buurten["buurtnaam"]],
+        )
+
+        # Adjust the border color for polygons
+        fig.update_traces(
+            marker_line_width=2,
+            marker_line_color="grey",
+            hovertemplate="<b>%{customdata[0]}</b><extra></extra>",
+        )
+        # Hide the color bar
+        fig.update_layout(coloraxis_showscale=True)
+        # Adjust legend - make it smaller
+        fig.update_layout(
+            legend=dict(
+                font=dict(size=10),  # Smaller font size
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,  # Position the legend close to the left edge
+                itemsizing="constant"  # Ensures symbols in legend remain small
+            ),        
+            margin={"r": 0, "t": 0, "l": 0, "b": 0}
+        )
+
+        # Display the figure in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
+    
+    if selected_view == 'Wijken Level':
+        # Convert GeoDataFrame to GeoJSON format
+        geojson = gdf_wijken.geometry.__geo_interface__
+        # gdf_service_areas = pd.merge(
+        #     df_accumulated.groupby("Service_Area")
+        #     .size()
+        #     .reset_index(name="Total Incidents"),
+        #     gdf_service_areas,
+        #     left_on="Service_Area",
+        #     right_on="Verzorgingsgebied",
+        #     how="right",
+        # )
+        # gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
+
+        # Create a base map
+
+        gdf_wijken["dummy"] = 1
+
+        fig = px.choropleth_mapbox(
+            gdf_wijken,
+            geojson=geojson,
+            locations=gdf_wijken.index,
+            color="dummy",  # using the dummy column here
+            color_continuous_scale=px.colors.sequential.Reds,
+            opacity=0.40,
+            center={"lat": 52.3550001, "lon": 4.8678},
+            mapbox_style="carto-darkmatter",
+            zoom=10.2,
+            custom_data=[gdf_wijken["wijknaam"]],
+        )
+
+        # Adjust the border color for polygons
+        fig.update_traces(
+            marker_line_width=2,
+            marker_line_color="grey",
+            hovertemplate="<b>%{customdata[0]}</b><extra></extra>",
+        )
+        # Hide the color bar
+        fig.update_layout(coloraxis_showscale=True)
+        # Adjust legend - make it smaller
+        fig.update_layout(
+            legend=dict(
+                font=dict(size=10),  # Smaller font size
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,  # Position the legend close to the left edge
+                itemsizing="constant"  # Ensures symbols in legend remain small
+            ),        
+            margin={"r": 0, "t": 0, "l": 0, "b": 0}
+        )
+
+        # Display the figure in Streamlit
+        st.plotly_chart(fig, use_container_width=True)
+
+
+
+    if selected_view == 'Incident Level':
+        # Convert GeoDataFrame to GeoJSON format
+        geojson = gdf_service_areas.geometry.__geo_interface__
+
+        gdf_service_areas["dummy"] = 1
 
         # Create a base map
         fig = px.choropleth_mapbox(
-            gdf,
+            gdf_service_areas,
             geojson=geojson,
-            locations=gdf.index,
+            locations=gdf_service_areas.index,
             color="dummy",  # using the dummy column here
             color_continuous_scale=[
                 "rgba(200, 200, 200, 0.2)",
@@ -167,7 +313,7 @@ def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
             center={"lat": 52.320001, "lon": 4.87278},
             mapbox_style="carto-darkmatter",
             zoom=9.7,
-            custom_data=[gdf["Verzorgingsgebied"]],
+            custom_data=[gdf_service_areas["Verzorgingsgebied"]],
         )
 
         # Adjust the border color for polygons
@@ -190,8 +336,8 @@ def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
         )
 
         # Collect coordinates for fire stations into lists
-        latitudes = gdf["LAT"].tolist()
-        longitudes = gdf["LON"].tolist()
+        latitudes = gdf_service_areas["LAT"].tolist()
+        longitudes = gdf_service_areas["LON"].tolist()
 
         # Add a single trace for all fire stations using go.Scattermapbox
         fig.add_trace(
@@ -203,7 +349,7 @@ def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
                     size=5,  # Adjust size as needed
                     color="silver",  # Set marker color
                 ),
-                text=["{}".format(name) for name in gdf["Verzorgingsgebied"]],
+                text=["{}".format(name) for name in gdf_service_areas["Verzorgingsgebied"]],
                 hoverinfo="text+name",  # Optionally, disable hover information or customize as needed
                 name="Fire Station",  # Name of the trace, appearing in the legend and hover
                 hoverlabel=dict(bgcolor="black", font=dict(color="white")),
@@ -268,7 +414,7 @@ def display_map_plotly_streamlit(gdf, df_accumulated, damage_type):
 col1, col2 = st.columns([3, 1])  # Adjust the ratio as needed for your layout
 with col1:
     # Display the map here (your existing map code)
-    display_map_plotly_streamlit(gdf, df_accumulated, damage_type)
+    display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_accumulated, damage_type)
 
 
 # Define colors for each damage type
@@ -418,8 +564,8 @@ else:
         yaxis_title=None,
         title_x=0.30,
         width=400,
-        height=510,
-        margin=dict(l=50, r=15, t=40, b=20),  # Adjust margins if needed
+        height=520,
+         margin=dict(l=50, r=15, t=20, b=70),  # Adjust margins if needed
     )
     with col2:
         st.plotly_chart(fig_df, use_container_width=False)
@@ -651,16 +797,16 @@ else:
     with col7:
         st.plotly_chart(fig_weather_condition, use_container_width=False)
 
-# Check if the DataFrame is not empty and 'Dd' column exists
-if df_knmi_selected is not None and "Dd" in df_knmi_selected.columns:
-    # Count occurrences where Dd is equal to 230
-    wind_direction_count = (df_knmi_selected["Dd"] == 230).sum()
+# # Check if the DataFrame is not empty and 'Dd' column exists
+# if df_knmi_selected is not None and "Dd" in df_knmi_selected.columns:
+#     # Count occurrences where Dd is equal to 230
+#     wind_direction_count = (df_knmi_selected["Dd"] == 230).sum()
 
-    # Display the count using Streamlit
-    st.write(
-        f"Number of occurrences where wind direction is 230: {wind_direction_count}"
-    )
-else:
-    st.write("Error: DataFrame is empty or 'Dd' column is missing.")
+#     # Display the count using Streamlit
+#     st.write(
+#         f"Number of occurrences where wind direction is 230: {wind_direction_count}"
+#     )
+# else:
+#     st.write("Error: DataFrame is empty or 'Dd' column is missing.")
 
 # st.sidebar.image('brandweerlogozwart.png', use_column_width=True)
