@@ -14,21 +14,19 @@ def convert_to_geodf(polars_df: pl.DataFrame) -> gpd.GeoDataFrame:
     """
     Convert a Polars DataFrame to a GeoDataFrame using WKB or WKT transformation.
     """
-    logger = get_dagster_logger()
 
     # Convert Polars DataFrame to Pandas DataFrame
-    gdf = gpd.GeoDataFrame(polars_df.to_pandas())
+    df = polars_df.to_pandas()
 
     # Convert geometry strings back to geometry objects
-    if "geometry" in gdf.columns:
-        gdf["geometry"] = gdf["geometry"].apply(wkt.loads)
-        logger.info(gdf.head())
+    if "geometry" in df.columns:
+        df["geometry"] = df["geometry"].apply(wkt.loads)
 
     else:
         raise ValueError("No 'geometry' column found in the DataFrame")
 
     # Convert back to GeoDataFrame
-    return gdf
+    return gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326")
 
 
 def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:

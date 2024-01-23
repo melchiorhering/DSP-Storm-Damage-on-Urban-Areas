@@ -2,25 +2,26 @@ import geopandas as gpd
 import pandas as pd
 import polars as pl
 from dagster import AssetExecutionContext, AssetIn, asset, get_dagster_logger
-from shapely.wkt import dumps, loads
+from shapely import wkt
 
 
 def convert_to_geodf(polars_df: pl.DataFrame) -> gpd.GeoDataFrame:
     """
-    Convert a Polars DataFrame back to a using WKB transformation GeoDataFrame.
+    Convert a Polars DataFrame to a GeoDataFrame using WKB or WKT transformation.
     """
+
     # Convert Polars DataFrame to Pandas DataFrame
-    pandas_df = polars_df.to_pandas()
+    df = polars_df.to_pandas()
 
     # Convert geometry strings back to geometry objects
-    # Ensure 'geometry' column is present and contains WKT strings
-    if "geometry" in pandas_df.columns:
-        pandas_df["geometry"] = pandas_df["geometry"].apply(loads)
+    if "geometry" in df.columns:
+        df["geometry"] = df["geometry"].apply(wkt.loads)
+
     else:
         raise ValueError("No 'geometry' column found in the DataFrame")
 
     # Convert back to GeoDataFrame
-    return gpd.GeoDataFrame(pandas_df, geometry="geometry")
+    return gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326")
 
 
 def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
@@ -28,7 +29,9 @@ def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
     Convert a GeoDataFrame to a Polars DataFrame.
     """
     # Efficiently convert geometries to string if needed
-    gdf["geometry"] = gdf["geometry"].apply(dumps)  # Consider if this step is necessary
+    gdf["geometry"] = gdf["geometry"].apply(
+        wkt.dumps
+    )  # Consider if this step is necessary
     return pl.from_pandas(pd.DataFrame(gdf))
 
 

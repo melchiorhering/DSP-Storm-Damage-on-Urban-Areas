@@ -186,8 +186,7 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
             session, logger, config.url, params, total_pages, initial_data
         )
 
-        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:28992")
-        gdf = gdf.to_crs("EPSG:4326")
+        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:4326")
 
         df = convert_to_polars(gdf)
 
@@ -238,8 +237,7 @@ async def grond_data(context: AssetExecutionContext, config: Grond) -> pl.DataFr
             session, logger, config.url, params, total_pages, initial_data
         )
 
-        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:28992")
-        gdf = gdf.to_crs("EPSG:4326")
+        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:4326")
         df = convert_to_polars(gdf)
 
     context.add_output_metadata(
