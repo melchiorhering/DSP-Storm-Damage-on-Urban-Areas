@@ -1,5 +1,3 @@
-from urllib.parse import quote
-
 import geopandas as gpd
 import pandas as pd
 import polars as pl
@@ -255,8 +253,6 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
             </Or>
         </Filter>
         """
-
-    quote(filter_xml)
 
     # Set up request parameters, including the filter
     params = {

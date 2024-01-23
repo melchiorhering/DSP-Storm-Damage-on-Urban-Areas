@@ -1,5 +1,4 @@
 import geopandas as gpd
-import pandas as pd
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -8,34 +7,92 @@ from dagster import (
     asset,
     get_dagster_logger,
 )
-from shapely.wkt import dumps, loads
+from shapely import wkt
 
 
 def convert_to_geodf(polars_df: pl.DataFrame) -> gpd.GeoDataFrame:
     """
-    Convert a Polars DataFrame back to a using WKB transformation GeoDataFrame.
+    Convert a Polars DataFrame to a GeoDataFrame using WKB or WKT transformation.
     """
+    logger = get_dagster_logger()
+
     # Convert Polars DataFrame to Pandas DataFrame
-    pandas_df = polars_df.to_pandas()
+    gdf = gpd.GeoDataFrame(polars_df.to_pandas())
 
     # Convert geometry strings back to geometry objects
-    # Ensure 'geometry' column is present and contains WKT strings
-    if "geometry" in pandas_df.columns:
-        pandas_df["geometry"] = pandas_df["geometry"].apply(loads)
+    if "geometry" in gdf.columns:
+        gdf["geometry"] = gdf["geometry"].apply(wkt.loads)
+        logger.info(gdf.head())
+
     else:
         raise ValueError("No 'geometry' column found in the DataFrame")
 
     # Convert back to GeoDataFrame
-    return gpd.GeoDataFrame(pandas_df, geometry="geometry")
+    return gdf
 
 
 def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
     """
-    Convert a GeoDataFrame to a Polars DataFrame.
+    Convert a GeoDataFrame to a Polars DataFrame, converting geometries to WKB strings.
     """
-    # Efficiently convert geometries to string if needed
-    gdf["geometry"] = gdf["geometry"].apply(dumps)  # Consider if this step is necessary
-    return pl.from_pandas(pd.DataFrame(gdf))
+    # If geometry conversion is necessary, uncomment the following line
+    # gdf["geometry"] = gdf["geometry"].apply(lambda geom: wkb_dumps(geom, hex=True))
+    gdf["geometry"] = gdf["geometry"].apply(lambda geom: wkt.dumps(geom))
+
+    # Convert to Polars DataFrame
+    return pl.from_pandas(gdf.to_pandas())
+
+
+@asset(
+    name="buurten_trees",
+    key_prefix="joined",
+    ins={
+        "tree_data": AssetIn(key="tree_data"),
+        "cbs_buurten": AssetIn(key="cbs_buurten"),
+    },
+    io_manager_key="database_io_manager",
+    description="Join tree data to incidents_buurten ",
+)
+def buurten_trees(
+    context: AssetExecutionContext,
+    cbs_buurten: pl.DataFrame,
+    tree_data: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Join CBS buurten on Storm incidents
+
+    :param AssetExecutionContext context: Dagster context
+    :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
+    :param pl.DataFrame storm_incidents data: Storm incidents data
+    :return pl.DataFrame: resulting joined table
+    """
+    logger = get_dagster_logger()
+
+    # Create a GeoDataFrame from wkb format
+    cbs_buurten = convert_to_geodf(cbs_buurten)
+    logger.info(cbs_buurten.head(20))
+
+    tree_data = convert_to_geodf(tree_data)
+    logger.info(tree_data.head(20))
+
+    # if cbs_buurten.crs != tree_data.crs:
+    #     tree_data = tree_data.to_crs(cbs_buurten.crs)
+
+    # joined_data = gpd.sjoin(cbs_buurten, tree_data)
+
+    # logger.info(joined_data.drop(columns="geometry"))
+
+    # context.add_output_metadata(
+    #     metadata={
+    #         "number_of_columns": MetadataValue.int(len(df.columns)),
+    #         "preview": MetadataValue.md(
+    #             df.drop("geometry").head().to_pandas().to_markdown()
+    #         ),
+    #         # The `MetadataValue` class has useful static methods to build Metadata
+    #     }
+    # )
+
+    # return df
 
 
 @asset(
@@ -48,7 +105,7 @@ def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
     io_manager_key="database_io_manager",
     description="Join cbs-buurten on storm incidents",
 )
-def incident_deployments_vehicles_wijken(
+def incidents_buurten(
     context: AssetExecutionContext,
     storm_incidents: pl.DataFrame,
     cbs_buurten: pl.DataFrame,
@@ -72,14 +129,16 @@ def incident_deployments_vehicles_wijken(
     if storm_incidents.crs != cbs_buurten.crs:
         storm_incidents = storm_incidents.to_crs(cbs_buurten.crs)
 
-    joined_data = storm_incidents.sjoin(cbs_buurten, how="left", op="within")
+    joined_data = cbs_buurten.sjoin(storm_incidents, how="left", op="within")
 
     df = convert_to_polars(joined_data)
 
     context.add_output_metadata(
         metadata={
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            "preview": MetadataValue.md(
+                df.drop("geometry").head().to_pandas().to_markdown()
+            ),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )

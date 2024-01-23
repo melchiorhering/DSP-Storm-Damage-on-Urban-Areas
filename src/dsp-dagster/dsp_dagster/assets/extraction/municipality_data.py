@@ -13,6 +13,7 @@ from dagster import (
     get_dagster_logger,
 )
 from pydantic import Field
+from shapely import wkt
 
 
 def create_url(endpoint: str) -> str:
@@ -40,7 +41,7 @@ class GemeenteAmsterdamAPI(Config):
     pageSize: int = Field(
         title="Page-Size",
         description="Sets page size for the returned data",
-        default=2000,
+        default=5000,
     )
 
 
@@ -68,6 +69,17 @@ class GrondWater(GemeenteAmsterdamAPI):
     )
 
 
+def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
+    """
+    Convert a GeoDataFrame to a Polars DataFrame.
+    """
+    # Efficiently convert geometries to string if needed
+    gdf["geometry"] = gdf["geometry"].apply(
+        wkt.dumps
+    )  # Consider if this step is necessary
+    return pl.from_pandas(pd.DataFrame(gdf))
+
+
 async def fetch_data(session, logger, url, params, page):
     """
     Asynchronously fetch data for a specific page.
@@ -88,50 +100,54 @@ async def fetch_data(session, logger, url, params, page):
 
 async def fetch_data_chunk(session, logger, url, params, start_page, end_page):
     """
-    Fetch a chunk of pages.
+    Fetch a chunk of pages and aggregate their features.
     """
     tasks = [
         fetch_data(session, logger, url, params, page)
         for page in range(start_page, end_page + 1)
     ]
     chunk_results = await asyncio.gather(*tasks)
-    return [item for sublist in chunk_results for item in sublist]
+
+    # Aggregate features from each page's FeatureCollection
+    aggregated_features = []
+    for chunk in chunk_results:
+        if chunk.get("type") == "FeatureCollection":
+            aggregated_features.extend(chunk.get("features", []))
+
+    return aggregated_features
 
 
 async def fetch_all_data(
-    session, logger, url, params, total_pages, chunk_size=15, delay=10
+    session, logger, url, params, total_pages, initial_data, chunk_size=20, delay=10
 ):
     """
-    Fetch all pages of data in chunks with a delay between each chunk.
+    Fetch all pages of data in chunks with a delay between each chunk, starting from the second page.
+    :param initial_data: The data fetched from the first page.
     """
-    all_data = []
-    for start_page in range(1, total_pages + 1, chunk_size):
-        end_page = min(start_page + chunk_size - 1, total_pages)
-        logger.info(f"Fetching pages {start_page} to {end_page}")
-        data_chunk = await fetch_data_chunk(
-            session, logger, url, params, start_page, end_page
-        )
-        all_data.extend(data_chunk)
+    feature_collection = (
+        initial_data if initial_data.get("type") == "FeatureCollection" else None
+    )
 
-        # Wait for a specified delay time before fetching the next chunk
-        if end_page < total_pages:
-            await asyncio.sleep(delay)
+    if not feature_collection:
+        raise ValueError("Initial data is not a FeatureCollection.")
+    else:
+        for start_page in range(2, total_pages + 1, chunk_size):  # Start from page 2
+            end_page = min(start_page + chunk_size - 1, total_pages)
+            logger.info(f"Fetching pages {start_page} to {end_page}")
+            data_chunk = await fetch_data_chunk(
+                session, logger, url, params, start_page, end_page
+            )
 
-    return all_data
+            # Append features from each chunk to the initial FeatureCollection
+            for chunk in data_chunk:
+                if chunk.get("type") == "FeatureCollection":
+                    feature_collection["features"].extend(chunk.get("features", []))
 
+            # Wait for a specified delay time before fetching the next chunk
+            if end_page < total_pages:
+                await asyncio.sleep(delay)
 
-def convert_to_geopandas(data):
-    """
-    Convert data to a GeoPandas DataFrame and perform transformations.
-    """
-    gdf = gpd.GeoDataFrame.from_features(data, crs="EPSG:28992").to_crs("EPSG:4326")
-
-    print(gdf.columns)
-    print(gdf.head())
-    gdf["latitude"] = gdf.geometry.y
-    gdf["longitude"] = gdf.geometry.x
-    gdf.drop(columns=["geometry"], inplace=True)
-    return gdf
+        return feature_collection
 
 
 @asset(
@@ -144,7 +160,6 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
     and converts it to a Polars DataFrame.
     """
     logger = get_dagster_logger()
-
     params = {
         "_format": config.fmt,
         "_count": config.count,
@@ -152,9 +167,8 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
     }
     logger.info(f"Using {params}")
 
-    async with httpx.AsyncClient(verify=False, timeout=460) as session:
+    async with httpx.AsyncClient(timeout=460) as session:
         initial_response = await session.get(config.url, params=params)
-
         if initial_response.status_code != 200:
             raise Failure(
                 description=f"Received non-200 status code [{initial_response.status_code}]",
@@ -167,23 +181,25 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
         total_pages = int(initial_response.headers["x-pagination-count"])
         logger.info(f"Total pages: {total_pages}")
 
+        initial_data = initial_response.json()
         all_data = await fetch_all_data(
-            session, logger, config.url, params, total_pages
+            session, logger, config.url, params, total_pages, initial_data
         )
 
-        gdf = convert_to_geopandas(all_data)
-        pdf = pd.DataFrame(gdf)
-        pl_df = pl.DataFrame(pdf)
+        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:28992")
+        gdf = gdf.to_crs("EPSG:4326")
+
+        df = convert_to_polars(gdf)
 
     context.add_output_metadata(
         metadata={
-            "describe": MetadataValue.md(pdf.describe().to_markdown()),
-            "number_of_columns": MetadataValue.int(len(pl_df.columns)),
-            "preview": MetadataValue.md(pl_df.head().to_pandas().to_markdown()),
+            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
         }
     )
 
-    return pl_df
+    return df
 
 
 @asset(
@@ -196,7 +212,6 @@ async def grond_data(context: AssetExecutionContext, config: Grond) -> pl.DataFr
     and converts it to a Polars DataFrame.
     """
     logger = get_dagster_logger()
-
     params = {
         "_format": config.fmt,
         "_count": config.count,
@@ -204,9 +219,8 @@ async def grond_data(context: AssetExecutionContext, config: Grond) -> pl.DataFr
     }
     logger.info(f"Using {params}")
 
-    async with httpx.AsyncClient(verify=False, timeout=460) as session:
+    async with httpx.AsyncClient(timeout=460) as session:
         initial_response = await session.get(config.url, params=params)
-
         if initial_response.status_code != 200:
             raise Failure(
                 description=f"Received non-200 status code [{initial_response.status_code}]",
@@ -219,20 +233,21 @@ async def grond_data(context: AssetExecutionContext, config: Grond) -> pl.DataFr
         total_pages = int(initial_response.headers["x-pagination-count"])
         logger.info(f"Total pages: {total_pages}")
 
+        initial_data = initial_response.json()
         all_data = await fetch_all_data(
-            session, logger, config.url, params, total_pages
+            session, logger, config.url, params, total_pages, initial_data
         )
 
-        gdf = convert_to_geopandas(all_data)
-        pdf = pd.DataFrame(gdf)
-        pl_df = pl.DataFrame(pdf)
+        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:28992")
+        gdf = gdf.to_crs("EPSG:4326")
+        df = convert_to_polars(gdf)
 
     context.add_output_metadata(
         metadata={
-            "describe": MetadataValue.md(pdf.describe().to_markdown()),
-            "number_of_columns": MetadataValue.int(len(pl_df.columns)),
-            "preview": MetadataValue.md(pl_df.head().to_pandas().to_markdown()),
+            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
         }
     )
 
-    return pl_df
+    return df

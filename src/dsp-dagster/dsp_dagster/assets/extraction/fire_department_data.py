@@ -2,7 +2,7 @@ import geopandas as gpd
 import pandas as pd
 import polars as pl
 from dagster import AssetExecutionContext, MetadataValue, asset
-from shapely.wkt import dumps
+from shapely import wkt
 
 
 @asset(
@@ -26,8 +26,10 @@ def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
 
     # Read LON and LAT
     df["geometry"] = gpd.points_from_xy(df["LON"], df["LAT"])
-    gdf = gpd.GeoDataFrame(df, geometry="geometry").drop(columns=["LON", "LAT"])
-    gdf["geometry"] = gdf["geometry"].apply(dumps)
+    gdf = gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326").drop(
+        columns=["LON", "LAT"]
+    )
+    gdf["geometry"] = gdf["geometry"].apply(wkt.dumps)
     df = pl.from_pandas(pd.DataFrame(gdf))
 
     context.add_output_metadata(
@@ -108,9 +110,10 @@ def service_areas(context: AssetExecutionContext) -> pl.DataFrame:
     ).to_pandas()
 
     # Read Feature Collection to Geopandas df, then transform to Pandas
-    df["geometry"] = gpd.GeoSeries.from_wkt(df["geomtext"])
-    gdf = gpd.GeoDataFrame(df, geometry="geometry").drop(columns=["geomtext", "geom"])
-    gdf["geometry"] = gdf["geometry"].apply(dumps)
+    df["geometry"] = gpd.GeoSeries.from_wkt(df["geomtext"], crs="EPSG:28992")
+    gdf = gpd.GeoDataFrame(df, geometry="geometry")
+    gdf = gdf.to_crs("EPSG:4326").drop(columns=["geomtext", "geom"])
+    gdf["geometry"] = gdf["geometry"].apply(wkt.dumps)
     df = pl.from_pandas(pd.DataFrame(gdf))
 
     context.add_output_metadata(
