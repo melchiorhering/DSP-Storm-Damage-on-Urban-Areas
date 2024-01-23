@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from datetime import date
+from datetime import datetime
 import matplotlib.pyplot as plt
 import plotly.express as px
 from shapely import wkt
@@ -45,50 +46,106 @@ df_buurten = get_table_as_dataframe(
     conn=conn, schema="public", table_name="cbs_buurten"
 )
 
+vertalingen = {'Tree': 'Bomen'
+               , 'Building': 'Gebouwen'
+               , 'Fence, Road signs, Scaffolding': 'Hekwerk, Verkeersborden, Steigers'
+               , 'Unknown' : 'Onbekend'}
+
+
 incident_counts = df_incidents["Date"].value_counts()
 dates_with_20_or_more_incidents = incident_counts[incident_counts >= 20].index
-# times = [f"{hour}:00" for hour in range(24)]
+
+# Storm names 
+# Creating a DataFrame for the storm data from 2007 and later
+storm_data_2007_later = {
+    "Jaar": [2007, 2013, 2013, 2015, 2016, 2017, 2018, 2018, 2020, 2020, 2020, 2021, 2021, 2021, 2022, 2022, 2022, 2022, 2023, 2023, 2023, 2023, 2023, 2023, 2024, 2024, 2024, 2024],
+    "Datum": ["18 jan", "28 okt", "5 dec", "25 jul", "20 nov", "13 sep", "3 jan", "18 jan", "25 sep", "27 dec", "9 feb", "20 jan", "21 jan", "7 feb", "31 jan", "16 feb", "18 feb", "20 feb", "5 juli", "18 okt", "2 nov", "9 dec", "21 dec", "27 dec", "2 jan", "3 jan", "21 jan", "22 jan"],
+    "Naam": ["", "", "", "", "", "", "", "", "Odetta", "Bella", "Ciara", "Christoph", "Christoph", "Darcy", "Corrie", "Dudley", "Eunice", "Franklin" , "Poly", "Babet", "Ciarán", "Elin", "Pia", "Gerrit", "Henk", "Henk", "Isha", "Isha"]
+}
+
+df_storms_2007_later_df = pd.DataFrame(storm_data_2007_later)
+
+# Adjusting the function to account for the "juli" month
+def convert_to_full_date_numeric(year, date_str):
+    # Handle special cases with two dates (e.g., "26/27 dec")
+    if '/' in date_str:
+        date_str = date_str.split('/')[0] + ' ' + date_str.split(' ')[-1]
+
+    # Convert Dutch month abbreviations to numeric format
+    dutch_months = {
+        "jan": "01", "feb": "02", "mrt": "03", "apr": "04", "mei": "05", "jun": "06",
+        "jul": "07", "aug": "08", "sep": "09", "okt": "10", "nov": "11", "dec": "12", "juli": "07"
+    }
+    day, month_abbr = date_str.split(' ')
+    month = dutch_months[month_abbr.lower()]
+
+    # Construct the full date string
+    full_date_str = f"{year}-{month}-{day}"
+
+    return full_date_str
+
+# Applying the function to each row in the DataFrame
+df_storms_2007_later_df['Datum'] = df_storms_2007_later_df.apply(lambda row: convert_to_full_date_numeric(row['Jaar'], row['Datum']), axis=1)
+
+# Dropping the 'Jaar' column as it's no longer needed
+df_storm_dates = df_storms_2007_later_df.drop(columns=['Jaar'])
+
+df_storm_dates['Datum'] = pd.to_datetime(df_storm_dates['Datum'], format="%Y-%m-%d")
+df_storm_dates['Datum'] = df_storm_dates['Datum'].dt.date
+df_storm_dates = df_storm_dates.sort_values(by='Datum', ascending=False)
+
 
 # Title
-st.title("Storm Damage Amsterdam-Amstelland")
+st.title("Stormschade Amsterdam-Amstelland")
+
+selectbox_options = df_storm_dates.apply(lambda row: f"{row['Datum']} ({row['Naam']})" if row['Naam'] else f"{row['Datum']}", axis=1).tolist()
 
 # Storm Selection
 st.sidebar.header("Storm")
-selected_storm = st.sidebar.selectbox(
-    "Select Previous Storm", dates_with_20_or_more_incidents
-)
+selected_storm_str = st.sidebar.selectbox(
+    "Selecteer Storm", selectbox_options)
 # selected_future_storm = st.sidebar.selectbox("Select Future Storm", dates_with_20_or_more_incidents)
 
-df_selected_storm = df_incidents[(df_incidents["Date"] == selected_storm)]
+# Extracting the date part from the selected option
+selected_storm_str = selected_storm_str.split(' ')[0]
 
-# Date Selection
-st.sidebar.header("Date")
-selected_date = st.sidebar.date_input("Select Date", date.today())
-print(selected_date)
+# Converting the string to a datetime.date object
+selected_storm = datetime.strptime(selected_storm_str, "%Y-%m-%d").date()
+
+
+# # Date Selection
+# st.sidebar.header("Datum")
+# selected_date = st.sidebar.date_input("Selecteer Datum", date.today())
+# print(selected_date)
 
 # Time Slider
 selected_hour = st.sidebar.slider(
-    "Select Hour", 0, 23, value=23
+    "Selecteer Uur", 0, 23, value=23
 )  # Values will be 0 to 23
+
+df_incidents['Damage_Type'] = df_incidents['Damage_Type'].map(vertalingen)
+
 
 # Continue with your operations using the selected_hour
 df_incidents["Hour"] = pd.to_datetime(
     df_incidents["Incident_Starttime"], format="%H:%M:%S"
 ).dt.hour
+
+
 df_accumulated = df_incidents[
-    (df_incidents["Date"] == selected_date.strftime("%Y-%m-%d"))
+    (df_incidents["Date"] == selected_storm.strftime("%Y-%m-%d"))
     & (df_incidents["Hour"] <= selected_hour)
 ]
 
-map_view_levels = ['Incident Level', 'Service Area Level', 'Wijken Level', 'Buurten Level']
+map_view_levels = ['Incident', 'Verzorgingsgebied', 'Wijk', 'Buurt']
 # Map Selection
-st.sidebar.header("Map View")
+st.sidebar.header("Map Weergave")
 selected_view = st.sidebar.selectbox(
-    "Select Map View", map_view_levels
+    "Selecteer Regionaal Niveau", map_view_levels
 )
 
 damage_type = df_incidents["Damage_Type"].unique()
-df_knmi_selected = df_knmi[df_knmi["Date"] == selected_date.strftime("%Y-%m-%d")]
+df_knmi_selected = df_knmi[df_knmi["Date"] == selected_storm.strftime("%Y-%m-%d")]
 
 # Convert df_serviceareas into gpd
 df_service_areas["geometry"] = df_service_areas["geometry"].apply(wkt.loads)
@@ -103,18 +160,15 @@ gdf_service_areas = gdf_service_areas.to_crs(epsg=4326)
 # Convert df_wijken into gpd
 df_wijken["geometry"] = df_wijken["geometry"].apply(wkt.loads)
 gdf_wijken = gpd.GeoDataFrame(df_wijken, geometry="geometry")
-# gdf_wijken.set_crs("EPSG:28992", inplace=True)
-# gdf_wijken = gdf_wijken.to_crs(epsg=4326)
 gdf_wijken.drop(0, inplace=True)
+gdf_wijken.reset_index(drop=True, inplace=True)
+
 
 # Convert df_buurten into gpd
 df_buurten["geometry"] = df_buurten["geometry"].apply(wkt.loads)
 gdf_buurten = gpd.GeoDataFrame(df_buurten, geometry="geometry")
-gdf_buurten.drop([0,1], inplace=True) 
-
-# Filter the DataFrame for the selected date
-df_filtered = df_incidents[df_incidents["Date"] == selected_date.strftime("%Y-%m-%d")]
-
+gdf_buurten.drop([0,1], inplace=True)
+gdf_buurten.reset_index(drop=True, inplace=True)
 
 gdf_incidents_accumulated = gpd.GeoDataFrame(df_accumulated, geometry=gpd.points_from_xy(df_accumulated.LON, df_accumulated.LAT))
 
@@ -122,17 +176,27 @@ gdf_incidents_accumulated = gpd.GeoDataFrame(df_accumulated, geometry=gpd.points
 joined_df = gpd.sjoin(gdf_incidents_accumulated, gdf_wijken, how="left", op="within")
 joined_df_final = gpd.sjoin(gdf_incidents_accumulated, gdf_buurten, how="left", op="within")
 
-
 df_accumulated['Wijk'] = joined_df['wijknaam']
 df_accumulated['Buurt'] = joined_df_final['buurtnaam']
+df_accumulated.fillna("Onbekend", inplace=True)
 
+# df for static figures
+df_filtered = df_incidents[df_incidents['Date'] == selected_storm.strftime('%Y-%m-%d')]
+gdf_incidents_filtered = gpd.GeoDataFrame(df_filtered, geometry=gpd.points_from_xy(df_filtered.LON, df_filtered.LAT))
 
+joined_df_filtered = gpd.sjoin(gdf_incidents_filtered, gdf_wijken, how="left", op="within")
+joined_df_filtered_final = gpd.sjoin(gdf_incidents_filtered, gdf_buurten, how="left", op="within")
+
+df_filtered['Wijk'] = joined_df_filtered['wijknaam']
+df_filtered['Buurt'] = joined_df_filtered_final['buurtnaam']
+df_filtered.fillna("Onbekend", inplace=True)
+df_filtered['Hour'] = pd.to_datetime(df_filtered['Incident_Starttime']).dt.hour
 
 # Function to display the map using Plotly in Streamlit
 def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_accumulated, damage_type):
     # show_intensity = st.checkbox("Show Intensity of Service Areas")
 
-    if selected_view == 'Service Area Level':
+    if selected_view == 'Verzorgingsgebied':
         # Convert GeoDataFrame to GeoJSON format
         geojson = gdf_service_areas.geometry.__geo_interface__
         gdf_service_areas = pd.merge(
@@ -142,7 +206,7 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             gdf_service_areas,
             left_on="Service_Area",
             right_on="Verzorgingsgebied",
-            how="right",
+            how="right"
         )
         gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
 
@@ -184,33 +248,38 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
         # Display the figure in Streamlit
         st.plotly_chart(fig, use_container_width=True)
 
-    if selected_view == 'Buurten Level':
+    if selected_view == 'Buurt':
         # Convert GeoDataFrame to GeoJSON format
         geojson = gdf_buurten.geometry.__geo_interface__
-        # gdf_buurten = pd.merge(
-        #     df_accumulated.groupby("Buurt")
-        #     .size()
-        #     .reset_index(name="Total Incidents"),
-        #     gdf_service_areas,
-        #     left_on="Buurt",
-        #     right_on="buurtnaam",
-        #     how="right",
-        # )
-        # gdf_buurten.drop("buurtnaam", axis=1, inplace=True)
 
-        gdf_buurten['dummy'] = 1
+        # Groepeer en tel incidenten per buurt
+        incident_counts = df_accumulated.groupby("Buurt").size().reset_index(name="Total Incidents")
+
+        # Voeg een rij toe voor elke buurt die geen incidenten heeft
+        all_buurten = pd.DataFrame(gdf_buurten['buurtnaam'].unique(), columns=['Buurt'])
+        incident_counts = all_buurten.merge(incident_counts, on='Buurt', how='left').fillna(0)
+
+        # Voeg de geografische data toe
+        gdf_buurten = pd.merge(
+            incident_counts,
+            gdf_buurten,
+            left_on="Buurt",
+            right_on="buurtnaam",
+            how="right"
+        )
+        gdf_buurten.drop("buurtnaam", axis=1, inplace=True)
 
         fig = px.choropleth_mapbox(
             gdf_buurten,
             geojson=geojson,
             locations=gdf_buurten.index,
-            color="dummy",  # using the dummy column here
+            color="Total Incidents",  # using the dummy column here
             color_continuous_scale=px.colors.sequential.Reds,
             opacity=0.40,
             center={"lat": 52.3550001, "lon": 4.8678},
             mapbox_style="carto-darkmatter",
             zoom=10.2,
-            custom_data=[gdf_buurten["buurtnaam"]],
+            custom_data=[gdf_buurten["Buurt"]],
         )
 
         # Adjust the border color for polygons
@@ -237,35 +306,37 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
         # Display the figure in Streamlit
         st.plotly_chart(fig, use_container_width=True)
     
-    if selected_view == 'Wijken Level':
+    if selected_view == 'Wijk':
         # Convert GeoDataFrame to GeoJSON format
         geojson = gdf_wijken.geometry.__geo_interface__
-        # gdf_service_areas = pd.merge(
-        #     df_accumulated.groupby("Service_Area")
-        #     .size()
-        #     .reset_index(name="Total Incidents"),
-        #     gdf_service_areas,
-        #     left_on="Service_Area",
-        #     right_on="Verzorgingsgebied",
-        #     how="right",
-        # )
-        # gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
 
-        # Create a base map
+        # Groepeer en tel incidenten per buurt
+        incident_counts = df_accumulated.groupby("Wijk").size().reset_index(name="Total Incidents")
 
-        gdf_wijken["dummy"] = 1
+        # Voeg een rij toe voor elke buurt die geen incidenten heeft
+        all_wijken = pd.DataFrame(gdf_wijken['wijknaam'].unique(), columns=['Wijk'])
+        incident_counts = all_wijken.merge(incident_counts, on='Wijk', how='left').fillna(0)
+
+        # Voeg de geografische data toe
+        gdf_wijken = pd.merge(
+            incident_counts,
+            gdf_wijken,
+            left_on="Wijk",
+            right_on="wijknaam",
+            how="right"
+        )
 
         fig = px.choropleth_mapbox(
             gdf_wijken,
             geojson=geojson,
             locations=gdf_wijken.index,
-            color="dummy",  # using the dummy column here
+            color="Total Incidents",  # using the dummy column here
             color_continuous_scale=px.colors.sequential.Reds,
             opacity=0.40,
             center={"lat": 52.3550001, "lon": 4.8678},
             mapbox_style="carto-darkmatter",
             zoom=10.2,
-            custom_data=[gdf_wijken["wijknaam"]],
+            custom_data=[gdf_wijken["Wijk"]],
         )
 
         # Adjust the border color for polygons
@@ -274,6 +345,7 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             marker_line_color="grey",
             hovertemplate="<b>%{customdata[0]}</b><extra></extra>",
         )
+
         # Hide the color bar
         fig.update_layout(coloraxis_showscale=True)
         # Adjust legend - make it smaller
@@ -293,8 +365,7 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
         st.plotly_chart(fig, use_container_width=True)
 
 
-
-    if selected_view == 'Incident Level':
+    if selected_view == 'Incident':
         # Convert GeoDataFrame to GeoJSON format
         geojson = gdf_service_areas.geometry.__geo_interface__
 
@@ -351,18 +422,17 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
                 ),
                 text=["{}".format(name) for name in gdf_service_areas["Verzorgingsgebied"]],
                 hoverinfo="text+name",  # Optionally, disable hover information or customize as needed
-                name="Fire Station",  # Name of the trace, appearing in the legend and hover
+                name="Kazerne",  # Name of the trace, appearing in the legend and hover
                 hoverlabel=dict(bgcolor="black", font=dict(color="white")),
             )
         )
 
         # Define a color map for damage types
         color_map = {
-            "Tree": "#06d6a0",
-            "Building": "#118ab2",
-            "Fence, Road signs, Scaffolding": "#ffd166",
-            "Unknown": "#ef476f"
-            # Ensure you have a color for each damage type
+            "Bomen": "#06d6a0",
+            "Gebouwen": "#118ab2",
+            "Hekwerk, Verkeersborden, Steigers": "#ffd166",
+            "Onbekend": "#ef476f"
         }
 
         # Only proceed if there are damage types specified
@@ -372,7 +442,7 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
 
             # Create a hover text series
             hover_text = [
-                "Type: {}<br>Priority: {}<br>Duration: {}<br>Coordinates: ({}, {})".format(
+                "Categorie: {}<br>Prioriteit: {}<br>Duur: {}<br>Coördinaten: ({}, {})".format(
                     type, priority, duration, lat, lon
                 )
                 for type, priority, duration, lat, lon in zip(
@@ -419,163 +489,465 @@ with col1:
 
 # Define colors for each damage type
 color_dict = {
-    "Tree": "#06d6a0",
-    "Building": "#118ab2",
-    "Fence, Road signs, Scaffolding": "#ffd166",
-    "Unknown": "#ef476f",
+    "Bomen": "#06d6a0",
+    "Gebouwen": "#118ab2",
+    "Hekwerk, Verkeersborden, Steigers": "#ffd166",
+    "Onbekend": "#ef476f",
 }
 
 if df_filtered.empty:
-    st.write("No data available for the selected date.")
-else:
-    # Extract hour from Incident_Starttime
-    # df_filtered['Hour'] = pd.to_datetime(df_filtered['Incident_Starttime']).dt.hour
+    st.write("Geen informatie beschikbaar voor de geselecteerde datum.")
+else:  
+    if selected_view == 'Incident' or selected_view == 'Verzorgingsgebied':
+         # Group by hour and damage type, then count incidents
+        hourly_damage = (
+            df_filtered.groupby(["Hour", "Damage_Type"])
+            .size()
+            .reset_index(name="Incidents")
+        )
 
-    # Group by hour and damage type, then count incidents
-    hourly_damage = (
-        df_filtered.groupby(["Hour", "Damage_Type"])
-        .size()
-        .reset_index(name="Incidents")
-    )
+        # Group by date and damage type for the donut pie chart
+        daily_damage = (
+            df_filtered.groupby(["Date", "Damage_Type"])
+            .size()
+            .reset_index(name="Incidents")
+        )
 
-    # Group by date and damage type for the donut pie chart
-    daily_damage = (
-        df_filtered.groupby(["Date", "Damage_Type"])
-        .size()
-        .reset_index(name="Incidents")
-    )
+        # Filter the data for the specific date
+        specific_date_data = daily_damage[
+            daily_damage["Date"] == daily_damage["Date"].max()
+        ]
 
-    # Group by date and service area for the top list
-    daily_damage_area = (
-        df_filtered.groupby(["Date", "Service_Area"])
-        .size()
-        .reset_index(name="Incidents")
-        .sort_values(by="Incidents", ascending=True)
-    )
+        # Total incidents for annotation
+        total_incidents = specific_date_data["Incidents"].sum()  
+        # Group by date and service area for the top list
+        daily_damage_area = (
+            df_filtered.groupby(["Date", "Service_Area"])
+            .size()
+            .reset_index(name="Incidents")
+            .sort_values(by="Incidents", ascending=True)
+            .head(10)
+        )
 
-    # Filter the data for the specific date
-    specific_date_data = daily_damage[
-        daily_damage["Date"] == daily_damage["Date"].max()
-    ]
+        fig_df = px.bar(
+            daily_damage_area,
+            x="Incidents",
+            y="Service_Area",
+            orientation="h",
+            text="Incidents",
+            color_discrete_sequence=["#073b4c"],
+        )
 
-    # Total incidents for annotation
-    total_incidents = specific_date_data["Incidents"].sum()
+        fig_df.update_traces(texttemplate="%{text}", textposition="outside")
+        fig_df.update_layout(
+            xaxis={"visible": False, "showticklabels": False},
+            yaxis_title=None,
+            title_text="Aantal incidenten per verzorgingsgebied", 
+            title_x=0.5,  
+            title_xanchor='center',
+            width=400,
+            height=520,
+            margin=dict(l=50, r=15, t=20, b=70),  # Adjust margins if needed
+        )
+        with col2:
+            st.plotly_chart(fig_df, use_container_width=False)
 
-    # Prepare the donut pie chart
-    fig_donut = go.Figure()
+        # Prepare the donut pie chart
+        fig_donut = go.Figure()
 
-    # Add a pie chart to the figure
-    fig_donut.add_trace(
-        go.Pie(
-            labels=specific_date_data["Damage_Type"],
-            values=specific_date_data["Incidents"],
-            hoverinfo="percent+label",
-            textinfo="value",
-            textposition="outside",
-            hole=0.6,
-            marker_colors=[
-                color_dict.get(damage_type, "#000000")
-                for damage_type in specific_date_data["Damage_Type"]
+        # Add a pie chart to the figure
+        fig_donut.add_trace(
+            go.Pie(
+                labels=specific_date_data["Damage_Type"],
+                values=specific_date_data["Incidents"],
+                hoverinfo="percent+label",
+                textinfo="value",
+                textposition="outside",
+                hole=0.6,
+                marker_colors=[
+                    color_dict.get(damage_type, "#000000")
+                    for damage_type in specific_date_data["Damage_Type"]
+                ],
+            )
+        )
+
+        # Update the layout of the donut pie chart
+        fig_donut.update_layout(
+            title_text="Aantal incidenten per categorie",
+            title_x=0.22,
+            annotations=[
+                dict(
+                    text=f"Totaal: {total_incidents}",
+                    x=0.5,
+                    y=0.5,
+                    font_size=20,
+                    showarrow=False,
+                )
             ],
-        )
-    )
-
-    # Update the layout of the donut pie chart
-    fig_donut.update_layout(
-        title_text="Number of Incidents per Type",
-        title_x=0.22,
-        annotations=[
-            dict(
-                text=f"Total: {total_incidents}",
-                x=0.5,
-                y=0.5,
-                font_size=20,
-                showarrow=False,
-            )
-        ],
-        showlegend=False,
-        width=410,
-        height=430,
-        margin=dict(l=70, r=90, t=94, b=20),
-    )
-
-    # Prepare the histogram
-    fig_histogram = go.Figure()
-
-    # Iterate through each damage type and hour to ensure all are represented
-    for damage_type in hourly_damage["Damage_Type"].unique():
-        for hour in range(24):
-            if not (
-                (hourly_damage["Damage_Type"] == damage_type)
-                & (hourly_damage["Hour"] == hour)
-            ).any():
-                # Create a DataFrame for the missing hour and concatenate
-                missing_hour_df = pd.DataFrame(
-                    {"Damage_Type": [damage_type], "Hour": [hour], "Incidents": [0]}
-                )
-                hourly_damage = pd.concat(
-                    [hourly_damage, missing_hour_df], ignore_index=True
-                )
-
-    # Now proceed with your existing plotting logic
-    for damage_type in hourly_damage["Damage_Type"].unique():
-        df_damage = hourly_damage[hourly_damage["Damage_Type"] == damage_type]
-        fig_histogram.add_trace(
-            go.Bar(
-                x=df_damage["Hour"],
-                y=df_damage["Incidents"],
-                name=damage_type,
-                marker_color=color_dict.get(
-                    damage_type, "#000000"
-                ),  # default color if not found
-                hoverinfo="y+name",
-            )
+            showlegend=False,
+            width=410,
+            height=430,
+            margin=dict(l=70, r=90, t=94, b=20),
         )
 
-    # Update the layout of the histogram
-    fig_histogram.update_layout(
-        title="Number of Incidents per Hour",
-        title_x=0.35,
-        xaxis=dict(
-            title="Hour",
-            tickmode="array",
-            tickvals=list(range(24)),
-            ticktext=[f"{hour}:00" for hour in range(24)],
-        ),
-        yaxis=dict(title="Number of Incidents"),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        bargap=0.1,
-        barmode="stack",
-    )
+        # Prepare the histogram
+        fig_histogram = go.Figure()
 
-    fig_df = px.bar(
-        daily_damage_area,
-        x="Incidents",
-        y="Service_Area",
-        orientation="h",
-        text="Incidents",
-        title="Total Incidents per Area",
-        color_discrete_sequence=["#073b4c"],
-    )
-    fig_df.update_traces(texttemplate="%{text}", textposition="outside")
-    fig_df.update_layout(
-        xaxis={"visible": False, "showticklabels": False},
-        yaxis_title=None,
-        title_x=0.30,
-        width=400,
-        height=520,
-         margin=dict(l=50, r=15, t=20, b=70),  # Adjust margins if needed
-    )
-    with col2:
-        st.plotly_chart(fig_df, use_container_width=False)
+        # Iterate through each damage type and hour to ensure all are represented
+        for damage_type in hourly_damage["Damage_Type"].unique():
+            for hour in range(24):
+                if not (
+                    (hourly_damage["Damage_Type"] == damage_type)
+                    & (hourly_damage["Hour"] == hour)
+                ).any():
+                    # Create a DataFrame for the missing hour and concatenate
+                    missing_hour_df = pd.DataFrame(
+                        {"Damage_Type": [damage_type], "Hour": [hour], "Incidents": [0]}
+                    )
+                    hourly_damage = pd.concat(
+                        [hourly_damage, missing_hour_df], ignore_index=True
+                    )
 
-    # Arrange the histogram and donut chart side by side in Streamlit
-    col3, col4 = st.columns([3, 1])  # adjust the ratio as needed for your layout
-    with col4:
-        st.plotly_chart(fig_donut, use_container_width=False)
-    with col3:
-        st.plotly_chart(fig_histogram, use_container_width=True)
+        # Now proceed with your existing plotting logic
+        for damage_type in hourly_damage["Damage_Type"].unique():
+            df_damage = hourly_damage[hourly_damage["Damage_Type"] == damage_type]
+            fig_histogram.add_trace(
+                go.Bar(
+                    x=df_damage["Hour"],
+                    y=df_damage["Incidents"],
+                    name=damage_type,
+                    marker_color=color_dict.get(
+                        damage_type, "#000000"
+                    ),  # default color if not found
+                    hoverinfo="y+name",
+                )
+            )
+
+        # Update the layout of the histogram
+        fig_histogram.update_layout(
+            title="Aantal incidenten per uur",
+            title_x=0.35,
+            xaxis=dict(
+                title="Hour",
+                tickmode="array",
+                tickvals=list(range(24)),
+                ticktext=[f"{hour}:00" for hour in range(24)],
+            ),
+            yaxis=dict(title="Number of Incidents"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            bargap=0.1,
+            barmode="stack",
+        )
+
+        # Arrange the histogram and donut chart side by side in Streamlit
+        col3, col4 = st.columns([3, 1])  # adjust the ratio as needed for your layout
+        with col4:
+            st.plotly_chart(fig_donut, use_container_width=False)
+        with col3:
+            st.plotly_chart(fig_histogram, use_container_width=True)
+    
+
+    if selected_view == 'Buurt':
+        df_filtered = df_filtered[df_filtered['Wijk'] != 'Onbekend']
+         # Group by hour and damage type, then count incidents
+        hourly_damage = (
+            df_filtered.groupby(["Hour", "Damage_Type"])
+            .size()
+            .reset_index(name="Incidents")
+        )
+
+        # Group by date and damage type for the donut pie chart
+        daily_damage = (
+            df_filtered.groupby(["Date", "Damage_Type"])
+            .size()
+            .reset_index(name="Incidents")
+        )
+
+        # Filter the data for the specific date
+        specific_date_data = daily_damage[
+            daily_damage["Date"] == daily_damage["Date"].max()
+        ]
+
+        # Total incidents for annotation
+        total_incidents = specific_date_data["Incidents"].sum()  
+
+        daily_damage_area = (
+            df_filtered.groupby(["Date", "Buurt"])
+            .size()
+            .reset_index(name="Incidents")
+            .sort_values(by="Incidents", ascending=False)
+            .head(10)
+            .sort_values(by="Incidents", ascending=True)
+        )
+
+        fig_df = px.bar(
+            daily_damage_area,
+            x="Incidents",
+            y="Buurt",
+            orientation="h",
+            text="Incidents",
+            title="Aantal incidents per buurt",
+            color_discrete_sequence=["#073b4c"],
+        )
+
+        fig_df.update_traces(texttemplate="%{text}", textposition="outside")
+        fig_df.update_layout(
+            xaxis={"visible": False, "showticklabels": False},
+            yaxis_title=None,
+            title_x=0.30,
+            width=400,
+            height=520,
+            margin=dict(l=50, r=15, t=20, b=70),  # Adjust margins if needed
+        )
+        with col2:
+            st.plotly_chart(fig_df, use_container_width=False)
+ 
+        # Prepare the donut pie chart
+        fig_donut = go.Figure()
+
+        # Add a pie chart to the figure
+        fig_donut.add_trace(
+            go.Pie(
+                labels=specific_date_data["Damage_Type"],
+                values=specific_date_data["Incidents"],
+                hoverinfo="percent+label",
+                textinfo="value",
+                textposition="outside",
+                hole=0.6,
+                marker_colors=[
+                    color_dict.get(damage_type, "#000000")
+                    for damage_type in specific_date_data["Damage_Type"]
+                ],
+            )
+        )
+
+        # Update the layout of the donut pie chart
+        fig_donut.update_layout(
+            title_text="Aantal incidenten per categorie",
+            title_x=0.22,
+            annotations=[
+                dict(
+                    text=f"Totaal: {total_incidents}",
+                    x=0.5,
+                    y=0.5,
+                    font_size=20,
+                    showarrow=False,
+                )
+            ],
+            showlegend=False,
+            width=410,
+            height=430,
+            margin=dict(l=70, r=90, t=94, b=20),
+        )
+
+        # Prepare the histogram
+        fig_histogram = go.Figure()
+
+        # Iterate through each damage type and hour to ensure all are represented
+        for damage_type in hourly_damage["Damage_Type"].unique():
+            for hour in range(24):
+                if not (
+                    (hourly_damage["Damage_Type"] == damage_type)
+                    & (hourly_damage["Hour"] == hour)
+                ).any():
+                    # Create a DataFrame for the missing hour and concatenate
+                    missing_hour_df = pd.DataFrame(
+                        {"Damage_Type": [damage_type], "Hour": [hour], "Incidents": [0]}
+                    )
+                    hourly_damage = pd.concat(
+                        [hourly_damage, missing_hour_df], ignore_index=True
+                    )
+
+        # Now proceed with your existing plotting logic
+        for damage_type in hourly_damage["Damage_Type"].unique():
+            df_damage = hourly_damage[hourly_damage["Damage_Type"] == damage_type]
+            fig_histogram.add_trace(
+                go.Bar(
+                    x=df_damage["Hour"],
+                    y=df_damage["Incidents"],
+                    name=damage_type,
+                    marker_color=color_dict.get(
+                        damage_type, "#000000"
+                    ),  # default color if not found
+                    hoverinfo="y+name",
+                )
+            )
+
+        # Update the layout of the histogram
+        fig_histogram.update_layout(
+            title="Aantal incidenten per uur",
+            title_x=0.35,
+            xaxis=dict(
+                title="Hour",
+                tickmode="array",
+                tickvals=list(range(24)),
+                ticktext=[f"{hour}:00" for hour in range(24)],
+            ),
+            yaxis=dict(title="Number of Incidents"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            bargap=0.1,
+            barmode="stack",
+        )
+
+        # Arrange the histogram and donut chart side by side in Streamlit
+        col3, col4 = st.columns([3, 1])  # adjust the ratio as needed for your layout
+        with col4:
+            st.plotly_chart(fig_donut, use_container_width=False)
+        with col3:
+            st.plotly_chart(fig_histogram, use_container_width=True)
+
+
+    if selected_view == 'Wijk':
+        df_filtered = df_filtered[df_filtered['Wijk'] != 'Onbekend']
+             # Group by hour and damage type, then count incidents
+        hourly_damage = (
+            df_filtered.groupby(["Hour", "Damage_Type"])
+            .size()
+            .reset_index(name="Incidents")
+        )
+
+        # Group by date and damage type for the donut pie chart
+        daily_damage = (
+            df_filtered.groupby(["Date", "Damage_Type"])
+            .size()
+            .reset_index(name="Incidents")
+        )
+
+        # Filter the data for the specific date
+        specific_date_data = daily_damage[
+            daily_damage["Date"] == daily_damage["Date"].max()
+        ]
+
+        # Total incidents for annotation
+        total_incidents = specific_date_data["Incidents"].sum()  
+
+        daily_damage_area = (
+            df_filtered.groupby(["Date", "Wijk"])
+            .size()
+            .reset_index(name="Incidents")
+            .sort_values(by="Incidents", ascending=False)
+            .head(10)
+            .sort_values(by="Incidents", ascending=True)
+        )
+
+        fig_df = px.bar(
+            daily_damage_area,
+            x="Incidents",
+            y="Wijk",
+            orientation="h",
+            text="Incidents",
+            title="Aantal incidents per wijk",
+            color_discrete_sequence=["#073b4c"],
+        )
+
+        fig_df.update_traces(texttemplate="%{text}", textposition="outside")
+        fig_df.update_layout(
+            xaxis={"visible": False, "showticklabels": False},
+            yaxis_title=None,
+            title_x=0.30,
+            width=400,
+            height=520,
+            margin=dict(l=50, r=15, t=20, b=70),  # Adjust margins if needed
+        )
+        with col2:
+            st.plotly_chart(fig_df, use_container_width=False)
+                # Prepare the donut pie chart
+        fig_donut = go.Figure()
+
+        # Add a pie chart to the figure
+        fig_donut.add_trace(
+            go.Pie(
+                labels=specific_date_data["Damage_Type"],
+                values=specific_date_data["Incidents"],
+                hoverinfo="percent+label",
+                textinfo="value",
+                textposition="outside",
+                hole=0.6,
+                marker_colors=[
+                    color_dict.get(damage_type, "#000000")
+                    for damage_type in specific_date_data["Damage_Type"]
+                ],
+            )
+        )
+
+        # Update the layout of the donut pie chart
+        fig_donut.update_layout(
+            title_text="Aantal incidenten per categorie",
+            title_x=0.22,
+            annotations=[
+                dict(
+                    text=f"Totaal: {total_incidents}",
+                    x=0.5,
+                    y=0.5,
+                    font_size=20,
+                    showarrow=False,
+                )
+            ],
+            showlegend=False,
+            width=410,
+            height=430,
+            margin=dict(l=70, r=90, t=94, b=20),
+        )
+
+        # Prepare the histogram
+        fig_histogram = go.Figure()
+
+        # Iterate through each damage type and hour to ensure all are represented
+        for damage_type in hourly_damage["Damage_Type"].unique():
+            for hour in range(24):
+                if not (
+                    (hourly_damage["Damage_Type"] == damage_type)
+                    & (hourly_damage["Hour"] == hour)
+                ).any():
+                    # Create a DataFrame for the missing hour and concatenate
+                    missing_hour_df = pd.DataFrame(
+                        {"Damage_Type": [damage_type], "Hour": [hour], "Incidents": [0]}
+                    )
+                    hourly_damage = pd.concat(
+                        [hourly_damage, missing_hour_df], ignore_index=True
+                    )
+
+        # Now proceed with your existing plotting logic
+        for damage_type in hourly_damage["Damage_Type"].unique():
+            df_damage = hourly_damage[hourly_damage["Damage_Type"] == damage_type]
+            fig_histogram.add_trace(
+                go.Bar(
+                    x=df_damage["Hour"],
+                    y=df_damage["Incidents"],
+                    name=damage_type,
+                    marker_color=color_dict.get(
+                        damage_type, "#000000"
+                    ),  # default color if not found
+                    hoverinfo="y+name",
+                )
+            )
+
+        # Update the layout of the histogram
+        fig_histogram.update_layout(
+            title="Aantal incidenten per uur",
+            title_x=0.35,
+            xaxis=dict(
+                title="Hour",
+                tickmode="array",
+                tickvals=list(range(24)),
+                ticktext=[f"{hour}:00" for hour in range(24)],
+            ),
+            yaxis=dict(title="Number of Incidents"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            bargap=0.1,
+            barmode="stack",
+        )
+
+        # Arrange the histogram and donut chart side by side in Streamlit
+        col3, col4 = st.columns([3, 1])  # adjust the ratio as needed for your layout
+        with col4:
+            st.plotly_chart(fig_donut, use_container_width=False)
+        with col3:
+            st.plotly_chart(fig_histogram, use_container_width=True)
+
 
     # Adjust KNMI dataset
     df_knmi_selected["Hour"] = df_knmi_selected["Hour"].apply(
@@ -586,7 +958,7 @@ else:
 
     # Add Force
     beaufort_windscale = {
-        "Force": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "Windkracht": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         "Min": [0, 1, 6, 12, 20, 29, 39, 50, 62, 75, 89, 103, 117],
         "Max": [1, 5, 11, 19, 28, 38, 49, 61, 74, 88, 102, 117, 200],
     }
@@ -596,10 +968,10 @@ else:
         rounded_ff = round(ff_value)
         for _, row in beaufort_df.iterrows():
             if row["Min"] <= rounded_ff <= row["Max"]:
-                return row["Force"]
+                return row["Windkracht"]
         return None
 
-    df_knmi_selected["Force"] = df_knmi_selected["Ff"].apply(find_kracht)
+    df_knmi_selected["Windkracht"] = df_knmi_selected["Ff"].apply(find_kracht)
 
     # Function to convert degrees to cardinal directions
     def degrees_to_direction(deg):
@@ -647,7 +1019,7 @@ else:
             x=df_knmi_selected["Hour"],
             y=df_knmi_selected["Ff"],
             mode="lines",
-            name="Windspeed",
+            name="Windsnelheid",
         )
     )
 
@@ -657,18 +1029,18 @@ else:
             x=df_knmi_selected["Hour"],
             y=df_knmi_selected["Rh"],
             mode="lines",
-            name="Precipitation",
+            name="Neerslag",
             yaxis="y2",
         )
     )
 
     # Update the layout
     fig_weather_graph.update_layout(
-        title="Average Windspeed and Precipitation per Hour",
-        xaxis_title="Hour",
+        title="Gemiddelde windsnelheid en neerslag per uur",
+        xaxis_title="Uur",
         title_x=0.34,
-        yaxis=dict(title="Windspeed (in km/h)"),
-        yaxis2=dict(title="Precipitation (in mm)", overlaying="y", side="right"),
+        yaxis=dict(title="Windsnelheid (in km/u)"),
+        yaxis2=dict(title="Neerslag (in mm)", overlaying="y", side="right"),
         xaxis=dict(
             tickmode="array",
             tickvals=[f"{hour:02d}:00" for hour in range(24)],
@@ -685,7 +1057,7 @@ else:
         df_knmi_selected,
         r="Ff",
         theta="Direction",
-        color="Force",
+        color="Windkracht",
         template="plotly_dark",
         color_discrete_sequence=px.colors.sequential.swatches_continuous(),
         category_orders={
@@ -709,18 +1081,18 @@ else:
             ]
         },
         barnorm="fraction",
-        custom_data=["Ff", "Force"],
+        custom_data=["Ff", "Windkracht"],
     )
 
     # Customize hover labels
     fig_windrose.update_traces(
         hovertemplate="<br>".join(
-            ["Wind Speed: %{customdata[0]:.1f} km/h", "Force: %{customdata[1]}"]
+            ["Windsnelheid: %{customdata[0]:.1f} km/u", "Windkracht: %{customdata[1]}"]
         )
     )
 
     fig_windrose.update_layout(
-        title_text="Wind Direction and Force",
+        title_text="Windrichting en windkracht",
         title_x=0.25,
         width=410,
         height=440,
@@ -752,7 +1124,7 @@ else:
             x=df_knmi_selected["Hour"],
             y=df_knmi_selected["R"],
             mode="lines",
-            name="Rain",
+            name="Regen",
         )
     )
     fig_weather_condition.add_trace(
@@ -760,7 +1132,7 @@ else:
             x=df_knmi_selected["Hour"],
             y=df_knmi_selected["S"],
             mode="lines",
-            name="Snow",
+            name="Sneeuw",
         )
     )
     fig_weather_condition.add_trace(
@@ -768,7 +1140,7 @@ else:
             x=df_knmi_selected["Hour"],
             y=df_knmi_selected["O"],
             mode="lines",
-            name="Thunderstorm",
+            name="Onweer",
         )
     )
     fig_weather_condition.add_trace(
@@ -776,16 +1148,16 @@ else:
             x=df_knmi_selected["Hour"],
             y=df_knmi_selected["Y"],
             mode="lines",
-            name="Ice Formation",
+            name="Ijzel",
         )
     )
 
     # Update the layout
     fig_weather_condition.update_layout(
-        title="Weather Conditions per Hour",
-        xaxis_title="Hour",
+        title="Weerconditie per uur",
+        xaxis_title="Uur",
         # yaxis_title='Condition Occurrence (0 or 1)',
-        yaxis=dict(tickmode="array", tickvals=[0, 1], ticktext=["No", "Yes"]),
+        yaxis=dict(tickmode="array", tickvals=[0, 1], ticktext=["Nee", "Ja"]),
         title_x=0.38,
         width=1025,
         height=400,
