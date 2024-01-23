@@ -52,11 +52,11 @@ def cleaned_storm_incidents(
     df = storm_incidents.with_columns(
         [
             pl.col("Incident_Starttime").dt.hour().alias("Incident_Starttime_Hour"),
-            pl.col("Incident_Endtime").dt.hour().alias("Incident_Endtime_Hour"),
-            pl.col("Incident_Duration").dt.hour().alias("Incident_Duration_Hour"),
+            # pl.col("Incident_Endtime").dt.hour().alias("Incident_Endtime_Hour"),
+            # pl.col("Incident_Duration").dt.hour().alias("Incident_Duration_Hour"),
             pl.col("Incident_Starttime").dt.minute().alias("Incident_Starttime_Minute"),
-            pl.col("Incident_Endtime").dt.minute().alias("Incident_Endtime_Minute"),
-            pl.col("Incident_Duration").dt.minute().alias("Incident_Duration_Minute"),
+            # pl.col("Incident_Endtime").dt.minute().alias("Incident_Endtime_Minute"),
+            # pl.col("Incident_Duration").dt.minute().alias("Incident_Duration_Minute"),
         ]
     )  # or .to_datetime("%+")
 

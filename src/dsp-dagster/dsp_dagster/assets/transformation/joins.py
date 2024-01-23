@@ -93,7 +93,7 @@ def buurten_trees(
 
 
 @asset(
-    name="incidents_buurten",
+    name="buurten_incidents",
     key_prefix="joined",
     ins={
         "cbs_buurten": AssetIn(key="cbs_buurten"),
@@ -102,7 +102,7 @@ def buurten_trees(
     io_manager_key="database_io_manager",
     description="Join cbs-buurten on storm incidents",
 )
-def incidents_buurten(
+def buurten_incidents(
     context: AssetExecutionContext,
     storm_incidents: pl.DataFrame,
     cbs_buurten: pl.DataFrame,
@@ -117,13 +117,17 @@ def incidents_buurten(
     """
     logger = get_dagster_logger()
 
+    # Filter out Total Rows (CBS just adds them)
+    cbs_buurten = cbs_buurten.filter(pl.col("buurtnaam") != " ")
+    gdf_buurten = convert_to_geodf(cbs_buurten)
+
     # Create a GeoDataFrame from wkb format
     gdf_storm_incidents = convert_to_geodf(storm_incidents)
-    gdf_cbs_buurten = convert_to_geodf(cbs_buurten)
-    logger.info(gdf_storm_incidents.columns)
-    logger.info(gdf_cbs_buurten.columns)
 
-    result = gdf_cbs_buurten.sjoin(gdf_storm_incidents, how="left", op="within")
+    logger.info(gdf_storm_incidents.columns)
+    logger.info(gdf_buurten.columns)
+
+    result = gdf_buurten.sjoin(gdf_storm_incidents)
 
     df = convert_to_polars(result)
 
