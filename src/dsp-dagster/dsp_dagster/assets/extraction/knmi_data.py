@@ -4,7 +4,13 @@ from typing import Optional
 
 import httpx
 import polars as pl
-from dagster import AssetExecutionContext, Config, MetadataValue, asset
+from dagster import (
+    AssetExecutionContext,
+    Config,
+    MetadataValue,
+    asset,
+    get_dagster_logger,
+)
 from pydantic import Field
 
 
@@ -56,11 +62,44 @@ class KNMIAssetConfig(Config):
     )
 
 
+def create_intervals(start, end, interval):
+    intervals = []
+    current_start = start
+    while current_start < end:
+        current_end = min(current_start + interval, end)
+        intervals.append((current_start, current_end))
+        current_start = current_end
+    return intervals
+
+
+async def fetch_data_for_interval(client, config, start, end):
+    params = {
+        "start": start.strftime("%Y%m%d%H"),
+        "end": end.strftime("%Y%m%d%H"),
+        "vars": config.vars,
+        "stns": config.stns,
+        "fmt": config.fmt,
+    }
+    response = await client.get(config.knmi_endpoint, params=params, timeout=180)
+    response.raise_for_status()
+    data = response.json()
+    return pl.from_dicts(data)
+
+
+async def fetch_data_for_intervals(config, intervals):
+    async with httpx.AsyncClient() as client:
+        tasks = [
+            fetch_data_for_interval(client, config, start, end)
+            for start, end in intervals
+        ]
+        return await asyncio.gather(*tasks)
+
+
 @asset(
-    name="knmi_weather_data",
+    name="knmi_weather_api",
     io_manager_key="database_io_manager",  # Addition: `io_manager_key` specified
 )
-def get_knmi_weather_data(
+def get_knmi_weather_api(
     context: AssetExecutionContext, config: KNMIAssetConfig
 ) -> pl.DataFrame:
     """
@@ -117,34 +156,53 @@ def get_knmi_weather_data(
     return combined_df
 
 
-def create_intervals(start, end, interval):
-    intervals = []
-    current_start = start
-    while current_start < end:
-        current_end = min(current_start + interval, end)
-        intervals.append((current_start, current_end))
-        current_start = current_end
-    return intervals
+@asset(
+    name="knmi_weather_txt",
+    io_manager_key="database_io_manager",
+)
+def load_knmi_weather_data_from_txt(
+    context: AssetExecutionContext,
+) -> pl.DataFrame:
+    """
+    Loads data from downloaded text files and merges them into a single DataFrame,
+    sorted by datetime.
+    """
 
+    logger = get_dagster_logger()
 
-async def fetch_data_for_interval(client, config, start, end):
-    params = {
-        "start": start.strftime("%Y%m%d%H"),
-        "end": end.strftime("%Y%m%d%H"),
-        "vars": config.vars,
-        "stns": config.stns,
-        "fmt": config.fmt,
-    }
-    response = await client.get(config.knmi_endpoint, params=params, timeout=180)
-    response.raise_for_status()
-    data = response.json()
-    return pl.from_dicts(data)
+    file_paths = [
+        "KNMI_2005010101_2010010124.txt",
+        "KNMI_2010010201_2015010124.txt",
+        "KNMI_2015010201_2020010124.txt",
+        "KNMI_2020010201_2024012218.txt",
+    ]
 
+    dataframes = []
+    for file in file_paths:
+        # Read the CSV file, skipping lines starting with '#'
+        df = pl.read_csv(
+            f"./data/{file}",
+            comment_prefix="#",
+            try_parse_dates=True,
+        )
+        dataframes.append(df)
+        logger.info(df.head(5))
+        logger.info(df.dtypes)
 
-async def fetch_data_for_intervals(config, intervals):
-    async with httpx.AsyncClient() as client:
-        tasks = [
-            fetch_data_for_interval(client, config, start, end)
-            for start, end in intervals
-        ]
-        return await asyncio.gather(*tasks)
+    # Concatenate all dataframes
+    combined_df = pl.concat(dataframes)
+
+    # Ensure the datetime column is in the correct format and sort
+    # Replace 'datetime_column' with the name of your actual datetime column
+    combined_df = combined_df.sort(by=["YYYYMMDD", "HH"])
+
+    context.add_output_metadata(
+        metadata={
+            "describe": MetadataValue.md(
+                combined_df.to_pandas().describe().to_markdown()
+            ),
+            "number_of_columns": MetadataValue.int(len(combined_df.columns)),
+            "preview": MetadataValue.md(combined_df.head().to_pandas().to_markdown()),
+        }
+    )
+    return combined_df

@@ -48,14 +48,14 @@ def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
         "buurten_trees": AssetIn(key="buurten_trees"),
     },
     io_manager_key="database_io_manager",
-    description="Aggregate the buurten_trees table",
+    description="Aggregate the buurten_trees table to create new features",
 )
-def aggregate_buurten_trees(
+def aggregated_buurten_trees(
     context: AssetExecutionContext,
     buurten_trees: pl.DataFrame,
 ) -> pl.DataFrame:
     """
-    Join CBS buurten on Storm incidents
+    Aggregate the buurten_trees data to create new features
 
     :param AssetExecutionContext context: Dagster context
     :param pl.DataFrame buurten_trees: Tree data added to CBS buurten
@@ -73,7 +73,6 @@ def aggregate_buurten_trees(
     ]
 
     df = buurten_trees.group_by("buurtcode").agg(pl.col("id").count().alias("Totaal"))
-    # df = buurten_trees.group_by()
 
     for i, column in enumerate(columns_to_pivot):
         temp_df = (
@@ -96,6 +95,48 @@ def aggregate_buurten_trees(
         )
         df = df.join(pivot_df, on="buurtcode", how="left").fill_null(0)
         logger.info(df.head(5))
+
+    context.add_output_metadata(
+        metadata={
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+
+    return df
+
+
+@asset(
+    name="aggregated_buurten_incidents",
+    key_prefix="joined",
+    ins={
+        "buurten_incidents": AssetIn(key="buurten_incidents"),
+    },
+    io_manager_key="database_io_manager",
+    description="Aggregate the buurten_incidents table to create new features",
+)
+def aggregated_buurten_incidents(
+    context: AssetExecutionContext,
+    buurten_incidents: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Aggregate the buurten_incidents data to create new features
+
+    :param AssetExecutionContext context: Dagster context
+    :param pl.DataFrame buurten_incidents: Tree data added to CBS buurten
+    :return pl.DataFrame: resulting joined table
+    """
+    # logger = get_dagster_logger()
+
+    df = buurten_incidents.group_by(
+        [
+            "buurtcode",
+            "Date",
+            "Incident_Starttime_Hour",
+            "Damage_Type",
+        ]
+    ).agg(pl.col("Incident_ID").count().alias("Totaal"))
 
     context.add_output_metadata(
         metadata={

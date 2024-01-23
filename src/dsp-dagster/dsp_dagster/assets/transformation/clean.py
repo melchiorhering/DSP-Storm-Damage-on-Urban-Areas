@@ -2,36 +2,62 @@ import polars as pl
 from dagster import AssetExecutionContext, AssetIn, MetadataValue, asset
 
 
+def clean_data(df: pl.DataFrame) -> pl.DataFrame:
+    # Change datetime-string to datetime format
+    cleaned_df = df.with_columns(
+        pl.col("date").str.to_date("%+"), pl.col("hour").cast(pl.Int8)
+    )
+
+    # Capitalize column names
+    cleaned_df.columns = [col.capitalize() for col in cleaned_df.columns]
+
+    return cleaned_df
+
+
 @asset(
-    name="cleaned_knmi_weather_data",
-    ins={"knmi_weather_data": AssetIn(key="knmi_weather_data")},
+    name="cleaned_knmi_weather_data_api",
+    ins={"knmi_weather_data_api": AssetIn(key="knmi_weather_api")},
     key_prefix="cleaned",
     io_manager_key="database_io_manager",
-    description="Transform str (datetime) to date format",
+    description="Clean API data source",
 )
-def cleaned_knmi_weather_data(
-    context: AssetExecutionContext, knmi_weather_data: pl.DataFrame
+def cleaned_knmi_weather_data_api(
+    context: AssetExecutionContext, knmi_weather_data_api: pl.DataFrame
 ) -> pl.DataFrame:
-    """
-    Set the data types of the KNMI data
-    :return pl.DataFrame: with adjusted data-types
-    """
+    return clean_data(knmi_weather_data_api)
 
-    # Change datetime-string to datetime format
-    df = knmi_weather_data.with_columns(
-        pl.col("date").str.to_date("%+"), pl.col("hour").cast(pl.Int8)
-    )  # or .to_datetime("%+")
 
-    # Capitalize col names
-    df.columns = [col.capitalize() for col in df.columns]
+@asset(
+    name="cleaned_knmi_weather_data_txt",
+    ins={"knmi_weather_data_txt": AssetIn(key="knmi_weather_txt")},
+    key_prefix="cleaned",
+    io_manager_key="database_io_manager",
+    description="Clean TXT data source",
+)
+def cleaned_knmi_weather_data_txt(
+    context: AssetExecutionContext, knmi_weather_data_txt: pl.DataFrame
+) -> pl.DataFrame:
+    return clean_data(knmi_weather_data_txt)
 
-    context.add_output_metadata(
-        metadata={
-            "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-        }
-    )
-    return df
+
+@asset(
+    name="select_knmi_weather_data_source",
+    ins={
+        "cleaned_api": AssetIn(key="cleaned_knmi_weather_data_api"),
+        "cleaned_txt": AssetIn(key="cleaned_knmi_weather_data_txt"),
+    },
+    key_prefix="selected",
+    io_manager_key="database_io_manager",
+    description="Select between API and TXT data sources based on availability or configuration",
+)
+def select_knmi_weather_data_source(
+    context: AssetExecutionContext, cleaned_api: pl.DataFrame, cleaned_txt: pl.DataFrame
+) -> pl.DataFrame:
+    # Implement selection logic based on data availability or configuration
+    if cleaned_api.shape[0] > 0:
+        return cleaned_api
+    else:
+        return cleaned_txt
 
 
 @asset(

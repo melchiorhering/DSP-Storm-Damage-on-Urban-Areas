@@ -115,17 +115,14 @@ def buurten_incidents(
     :param pl.DataFrame storm_incidents data: Storm incidents data
     :return pl.DataFrame: resulting joined table
     """
-    logger = get_dagster_logger()
+    # logger = get_dagster_logger()
 
-    # Filter out Total Rows (CBS just adds them)
+    # Filter out non `buurtnaam` rows (CBS just adds them)
     cbs_buurten = cbs_buurten.filter(pl.col("buurtnaam") != " ")
     gdf_buurten = convert_to_geodf(cbs_buurten)
 
     # Create a GeoDataFrame from wkb format
     gdf_storm_incidents = convert_to_geodf(storm_incidents)
-
-    logger.info(gdf_storm_incidents.columns)
-    logger.info(gdf_buurten.columns)
 
     result = gdf_buurten.sjoin(gdf_storm_incidents)
 
@@ -137,6 +134,44 @@ def buurten_incidents(
             "preview": MetadataValue.md(
                 df.drop("geometry").head().to_pandas().to_markdown()
             ),
+            # The `MetadataValue` class has useful static methods to build Metadata
+        }
+    )
+
+    return df
+
+
+@asset(
+    name="buurten_incidents_trees",
+    key_prefix="joined",
+    ins={
+        "buurten_trees": AssetIn(key="aggregated_buurten_trees"),
+        "buurten_incidents": AssetIn(key="aggregated_buurten_incidents"),
+    },
+    io_manager_key="database_io_manager",
+    description="Join the buurten_trees & buurten_incidents so we have a final buurten dataset",
+)
+def buurten_incidents_trees(
+    context: AssetExecutionContext,
+    buurten_trees: pl.DataFrame,
+    buurten_incidents: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Join CBS buurten on Storm incidents
+
+    :param AssetExecutionContext context: Dagster context
+    :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
+    :param pl.DataFrame storm_incidents data: Storm incidents data
+    :return pl.DataFrame: resulting joined table
+    """
+    # logger = get_dagster_logger()
+
+    df = buurten_incidents.join(buurten_trees, on="buurtcode")
+
+    context.add_output_metadata(
+        metadata={
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
