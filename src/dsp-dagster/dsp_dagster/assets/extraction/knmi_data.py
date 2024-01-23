@@ -4,13 +4,7 @@ from typing import Optional
 
 import httpx
 import polars as pl
-from dagster import (
-    AssetExecutionContext,
-    Config,
-    MetadataValue,
-    asset,
-    get_dagster_logger,
-)
+from dagster import AssetExecutionContext, Config, MetadataValue, asset
 from pydantic import Field
 
 
@@ -168,7 +162,7 @@ def load_knmi_weather_data_from_txt(
     sorted by datetime.
     """
 
-    logger = get_dagster_logger()
+    # logger = get_dagster_logger()
 
     file_paths = [
         "KNMI_2005010101_2010010124.txt",
@@ -181,20 +175,19 @@ def load_knmi_weather_data_from_txt(
     for file in file_paths:
         # Read the CSV file, skipping lines starting with '#'
         df = pl.read_csv(
-            f"./data/{file}",
-            comment_prefix="#",
-            try_parse_dates=True,
+            f"./data/{file}", comment_prefix="#", try_parse_dates=True, has_header=True
         )
+
+        # Remove whitespaces and tabs from column names
+        df.columns = [col.replace(" ", "").replace("\t", "") for col in df.columns]
         dataframes.append(df)
-        logger.info(df.head(5))
-        logger.info(df.dtypes)
 
     # Concatenate all dataframes
-    combined_df = pl.concat(dataframes)
+    combined_df: pl.DataFrame = pl.concat(dataframes)
 
     # Ensure the datetime column is in the correct format and sort
     # Replace 'datetime_column' with the name of your actual datetime column
-    combined_df = combined_df.sort(by=["YYYYMMDD", "HH"])
+    combined_df = combined_df.sort(by=["YYYYMMDD", "HH"], descending=True)
 
     context.add_output_metadata(
         metadata={
