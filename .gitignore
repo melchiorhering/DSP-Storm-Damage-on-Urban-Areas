@@ -4,6 +4,8 @@ src/dsp-dagster/storage/*
 src/dsp-dagster/data/*
 *mlruns/*
 
+*data_systems_project.duckdb
+
 *logs
 *history
 *.telemetry

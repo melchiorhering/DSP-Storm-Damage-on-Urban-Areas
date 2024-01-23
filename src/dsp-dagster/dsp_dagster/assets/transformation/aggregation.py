@@ -97,15 +97,10 @@ def aggregate_buurten_trees(
         df = df.join(pivot_df, on="buurtcode", how="left").fill_null(0)
         logger.info(df.head(5))
 
-    # Convert tot Polars
-    df = convert_to_polars(df)
-
     context.add_output_metadata(
         metadata={
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(
-                df.drop("geometry").head().to_pandas().to_markdown()
-            ),
+            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
