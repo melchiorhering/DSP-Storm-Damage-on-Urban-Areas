@@ -102,25 +102,76 @@ selectbox_options = df_storm_dates.apply(lambda row: f"{row['Datum']} ({row['Naa
 
 # Storm Selection
 st.sidebar.header("Storm")
-selected_storm_str = st.sidebar.selectbox(
-    "Selecteer Storm", selectbox_options)
-# selected_future_storm = st.sidebar.selectbox("Select Future Storm", dates_with_20_or_more_incidents)
+# selected_storm_str = st.sidebar.selectbox(
+#     "Selecteer Storm", selectbox_options)
+# # selected_future_storm = st.sidebar.selectbox("Select Future Storm", dates_with_20_or_more_incidents)
 
-# Extracting the date part from the selected option
-selected_storm_str = selected_storm_str.split(' ')[0]
+# # Extracting the date part from the selected option
+# selected_storm_str = selected_storm_str.split(' ')[0]
 
-# Converting the string to a datetime.date object
-selected_storm = datetime.strptime(selected_storm_str, "%Y-%m-%d").date()
+# # Converting the string to a datetime.date object
+# selected_storm = datetime.strptime(selected_storm_str, "%Y-%m-%d").date()
 
-
-# # Date Selection
+# # Date Calendar Selection
 # st.sidebar.header("Datum")
-# selected_date = st.sidebar.date_input("Selecteer Datum", date.today())
-# print(selected_date)
+# selected_storm = st.sidebar.date_input("Selecteer Datum", date.today())
+# print(selected_storm)
+
+
+import streamlit as st
+from datetime import datetime
+
+# Initialize session state variables if they don't exist
+if 'last_date_interaction' not in st.session_state:
+    st.session_state['last_date_interaction'] = None
+if 'selected_date_dropdown' not in st.session_state:
+    st.session_state['selected_date_dropdown'] = None
+if 'selected_date_calendar' not in st.session_state:
+    st.session_state['selected_date_calendar'] = datetime.today().date()  # default to today's date
+
+# Function to update session state for dropdown
+def update_dropdown():
+    st.session_state.last_date_interaction = 'dropdown'
+
+# Function to update session state for calendar
+def update_calendar():
+    st.session_state.last_date_interaction = 'calendar'
+
+# Dropdown for selecting date
+selected_date_str = st.sidebar.selectbox(
+    "Selecteer storm", selectbox_options, on_change=update_dropdown)
+# Update the dropdown state after selection
+st.session_state['selected_date_dropdown'] = selected_date_str
+
+# Calendar for selecting date
+selected_date_calendar = st.sidebar.date_input(
+    "Selecteer datum", value=st.session_state['selected_date_calendar'], on_change=update_calendar)
+
+# Determine the final date selection based on the last interaction
+selected_storm = None
+if st.session_state.last_date_interaction == 'dropdown':
+    selected_storm = datetime.strptime(selected_date_str.split(' ')[0], "%Y-%m-%d").date()
+elif st.session_state.last_date_interaction == 'calendar':
+    selected_storm = selected_date_calendar
+else:
+    # Default to dropdown value if no interaction has occurred
+    selected_storm = datetime.strptime(selected_date_str.split(' ')[0], "%Y-%m-%d").date()
+
+st.sidebar.write(f"Geselecteerde datum: {selected_storm}")
+
+
+# Map View
+map_view_levels = ['Incident', 'Verzorgingsgebied', 'Wijk', 'Buurt']
+# Map Selection
+st.sidebar.header("Map")
+selected_view = st.sidebar.radio(
+    "Selecteer regionaal niveau", map_view_levels
+)
 
 # Time Slider
+st.sidebar.header("Simulatie")
 selected_hour = st.sidebar.slider(
-    "Selecteer Uur", 0, 23, value=23
+    "Selecteer uur", 0, 23, value=23
 )  # Values will be 0 to 23
 
 df_incidents['Damage_Type'] = df_incidents['Damage_Type'].map(vertalingen)
@@ -137,12 +188,7 @@ df_accumulated = df_incidents[
     & (df_incidents["Hour"] <= selected_hour)
 ]
 
-map_view_levels = ['Incident', 'Verzorgingsgebied', 'Wijk', 'Buurt']
-# Map Selection
-st.sidebar.header("Map Weergave")
-selected_view = st.sidebar.selectbox(
-    "Selecteer Regionaal Niveau", map_view_levels
-)
+
 
 damage_type = df_incidents["Damage_Type"].unique()
 df_knmi_selected = df_knmi[df_knmi["Date"] == selected_storm.strftime("%Y-%m-%d")]
@@ -192,30 +238,41 @@ df_filtered['Buurt'] = joined_df_filtered_final['buurtnaam']
 df_filtered.fillna("Onbekend", inplace=True)
 df_filtered['Hour'] = pd.to_datetime(df_filtered['Incident_Starttime']).dt.hour
 
+
 # Function to display the map using Plotly in Streamlit
 def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_accumulated, damage_type):
     # show_intensity = st.checkbox("Show Intensity of Service Areas")
 
     if selected_view == 'Verzorgingsgebied':
-        # Convert GeoDataFrame to GeoJSON format
-        geojson = gdf_service_areas.geometry.__geo_interface__
-        gdf_service_areas = pd.merge(
-            df_accumulated.groupby("Service_Area")
-            .size()
-            .reset_index(name="Total Incidents"),
-            gdf_service_areas,
-            left_on="Service_Area",
-            right_on="Verzorgingsgebied",
-            how="right"
-        )
-        gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
+        incidents_per_area = df_accumulated.groupby("Service_Area") \
+            .size() \
+            .reset_index(name="Total Incidents")
 
-        # Create a base map
+        # Merge the counts with the service areas geodataframe
+        gdf_service_areas = pd.merge(
+            gdf_service_areas,
+            incidents_per_area,
+            left_on="Verzorgingsgebied",
+            right_on="Service_Area",
+            how="left"
+        )
+
+        # Replace NaN values with 0 for service areas without incidents
+        gdf_service_areas["Total Incidents"].fillna(0, inplace=True)
+
+        # Remove the now unnecessary 'Service_Area' column if it exists
+        if 'Service_Area' in gdf_service_areas.columns:
+            gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
+
+        # Get the geojson representation for plotting
+        geojson = gdf_service_areas.geometry.__geo_interface__
+
+        # Create a base map using Plotly
         fig = px.choropleth_mapbox(
             gdf_service_areas,
             geojson=geojson,
             locations=gdf_service_areas.index,
-            color="Total Incidents",  # using the dummy column here
+            color="Total Incidents",
             color_continuous_scale=px.colors.sequential.Reds,
             opacity=0.40,
             center={"lat": 52.320001, "lon": 4.87278},
@@ -224,12 +281,14 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             custom_data=[gdf_service_areas["Verzorgingsgebied"]],
         )
 
+
         # Adjust the border color for polygons
         fig.update_traces(
             marker_line_width=2,
             marker_line_color="grey",
             hovertemplate="<b>%{customdata[0]}</b><extra></extra>",
         )
+
         # Hide the color bar
         fig.update_layout(coloraxis_showscale=True)
         # Adjust legend - make it smaller
@@ -366,7 +425,27 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
 
 
     if selected_view == 'Incident':
-        # Convert GeoDataFrame to GeoJSON format
+        incidents_per_area = df_accumulated.groupby("Service_Area") \
+            .size() \
+            .reset_index(name="Total Incidents")
+
+        # Merge the counts with the service areas geodataframe
+        gdf_service_areas = pd.merge(
+            gdf_service_areas,
+            incidents_per_area,
+            left_on="Verzorgingsgebied",
+            right_on="Service_Area",
+            how="left"
+        )
+
+        # Replace NaN values with 0 for service areas without incidents
+        gdf_service_areas["Total Incidents"].fillna(0, inplace=True)
+
+        # Remove the now unnecessary 'Service_Area' column if it exists
+        if 'Service_Area' in gdf_service_areas.columns:
+            gdf_service_areas.drop("Service_Area", axis=1, inplace=True)
+
+        # Get the geojson representation for plotting
         geojson = gdf_service_areas.geometry.__geo_interface__
 
         gdf_service_areas["dummy"] = 1
