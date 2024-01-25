@@ -269,6 +269,8 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
     logger.info(gdf.head(10))
     df = convert_to_polars(gdf)
 
+    df = df.filter(pl.col("buurtnaam") != " ")
+
     context.add_output_metadata(
         metadata={
             # "metadata": MetadataValue.json(data),

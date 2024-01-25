@@ -1,6 +1,8 @@
 #!/bin/sh
-poetry update --no-interaction
 poetry install --no-interaction --no-ansi --only main --no-root
+# poetry update --no-interaction
+
+duckdb DSP.duckdb
 
 export DAGSTER_HOME=/home/workspaces/DSP-compose/dsp-dagster/
 

@@ -32,16 +32,18 @@ def storm_incidents(context: AssetExecutionContext) -> pl.DataFrame:
     gdf["geometry"] = gdf["geometry"].apply(wkt.dumps)
     df = pl.from_pandas(pd.DataFrame(gdf))
 
+    df = df.with_columns((pl.col("Date").dt.date()).alias("Incident_Date")).drop("Date")
+
     context.add_output_metadata(
         metadata={
             "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
             "max_date": MetadataValue.text(
-                df.select("Date").max().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
+                df.select("Incident_Date").max().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
             ),
             "min_date": MetadataValue.text(
-                df.select("Date").min().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
+                df.select("Incident_Date").min().to_pandas().iloc[0, 0].strftime("%Y-%m-%d")
             ),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
@@ -120,7 +122,7 @@ def service_areas(context: AssetExecutionContext) -> pl.DataFrame:
         metadata={
             "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            "preview": MetadataValue.md(df.drop("geometry").to_pandas().head().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )

@@ -41,142 +41,196 @@ def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
     return pl.from_pandas(gdf)
 
 
-@asset(
-    name="buurten_trees",
-    key_prefix="joined",
-    ins={
-        "tree_data": AssetIn(key="tree_data"),
-        "cbs_buurten": AssetIn(key="cbs_buurten"),
-    },
-    io_manager_key="database_io_manager",
-    description="Join tree data to incidents_buurten ",
-)
-def buurten_trees(
-    context: AssetExecutionContext,
-    cbs_buurten: pl.DataFrame,
-    tree_data: pl.DataFrame,
-) -> pl.DataFrame:
-    """
-    Join CBS buurten on Storm incidents on Geometry data
-
-    :param AssetExecutionContext context: Dagster context
-    :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
-    :param pl.DataFrame storm_incidents data: Storm incidents data
-    :return pl.DataFrame: resulting joined table
-    """
-    logger = get_dagster_logger()
-
-    # Filter out Total Rows (CBS just adds them)
-    cbs_buurten = cbs_buurten.filter(pl.col("buurtnaam") != " ")
-    gdf_buurten = convert_to_geodf(cbs_buurten)
-
-    gdf_tree_data = convert_to_geodf(tree_data)
-    logger.info(tree_data.head(20))
-
-    # Do a spatial join
-    result = gdf_buurten.sjoin(gdf_tree_data)
-
-    # Convert tot Polars
-    df = convert_to_polars(result)
-
-    context.add_output_metadata(
-        metadata={
-            "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(
-                df.drop("geometry").head().to_pandas().to_markdown()
-            ),
-            # The `MetadataValue` class has useful static methods to build Metadata
-        }
-    )
-
-    return df
 
 
-@asset(
-    name="buurten_incidents",
-    key_prefix="joined",
-    ins={
-        "cbs_buurten": AssetIn(key="cbs_buurten"),
-        "storm_incidents": AssetIn(key="cleaned_storm_incidents"),
-    },
-    io_manager_key="database_io_manager",
-    description="Join cbs-buurten on storm incidents",
-)
-def buurten_incidents(
-    context: AssetExecutionContext,
-    storm_incidents: pl.DataFrame,
-    cbs_buurten: pl.DataFrame,
-) -> pl.DataFrame:
-    """
-    Join CBS buurten on Storm incidents
 
-    :param AssetExecutionContext context: Dagster context
-    :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
-    :param pl.DataFrame storm_incidents data: Storm incidents data
-    :return pl.DataFrame: resulting joined table
-    """
-    # logger = get_dagster_logger()
+# @asset(
+#     name="incidents_nearest_tree",
+#     key_prefix="joined",
+#     ins={
+#         "tree_data": AssetIn(key="tree_data"),
+#         "storm_incidents": AssetIn(key="storm_incidents"),
+#     },
+#     io_manager_key="database_io_manager",
+#     description="Join tree data to incidents_buurten ",
+# )
+# def incidents_nearest_tree(
+#     context: AssetExecutionContext,
+#     storm_incidents: pl.DataFrame,
+#     tree_data: pl.DataFrame,
+# ) -> pl.DataFrame:
+#     """
+#     Join CBS buurten on Storm incidents on Geometry data
 
-    # Filter out non `buurtnaam` rows (CBS just adds them)
-    cbs_buurten = cbs_buurten.filter(pl.col("buurtnaam") != " ")
-    gdf_buurten = convert_to_geodf(cbs_buurten)
-
-    # Create a GeoDataFrame from wkb format
-    gdf_storm_incidents = convert_to_geodf(storm_incidents)
-
-    result = gdf_buurten.sjoin(gdf_storm_incidents)
-
-    df = convert_to_polars(result)
-
-    context.add_output_metadata(
-        metadata={
-            "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(
-                df.drop("geometry").head().to_pandas().to_markdown()
-            ),
-            # The `MetadataValue` class has useful static methods to build Metadata
-        }
-    )
-
-    return df
+#     :param AssetExecutionContext context: Dagster context
+#     :param pl.DataFrame storm_incidents: storm_incidents
+#     :param pl.DataFrame storm_incidents data: Storm incidents data
+#     :return pl.DataFrame: resulting joined table
+#     """
+#     logger = get_dagster_logger()
 
 
-@asset(
-    name="buurten_incidents_trees",
-    key_prefix="joined",
-    ins={
-        "buurten_trees": AssetIn(key="aggregated_buurten_trees"),
-        "buurten_incidents": AssetIn(key="aggregated_buurten_incidents"),
-    },
-    io_manager_key="database_io_manager",
-    description="Join the buurten_trees & buurten_incidents so we have a final buurten dataset",
-)
-def buurten_incidents_trees(
-    context: AssetExecutionContext,
-    buurten_trees: pl.DataFrame,
-    buurten_incidents: pl.DataFrame,
-) -> pl.DataFrame:
-    """
-    Join CBS buurten on Storm incidents
+#     gdf_storm_incidents = convert_to_geodf(storm_incidents)
 
-    :param AssetExecutionContext context: Dagster context
-    :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
-    :param pl.DataFrame storm_incidents data: Storm incidents data
-    :return pl.DataFrame: resulting joined table
-    """
-    # logger = get_dagster_logger()
+#     gdf_tree_data = convert_to_geodf(tree_data)
 
-    df = buurten_incidents.join(buurten_trees, on="buurtcode")
+#     # Perform the spatial join
+#     incident_nearest_tree = gdf_storm_incidents.sjoin_nearest(gdf_tree_data, distance_col="distance")
 
-    context.add_output_metadata(
-        metadata={
-            "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-            # The `MetadataValue` class has useful static methods to build Metadata
-        }
-    )
+#     # Convert tot Polars
+#     df = convert_to_polars(incident_nearest_tree)
 
-    return df
+#     context.add_output_metadata(
+#         metadata={
+#             "number_of_columns": MetadataValue.int(len(df.columns)),
+#             "preview": MetadataValue.md(
+#                 df.drop("geometry").head().to_pandas().to_markdown()
+#             ),
+#             # The `MetadataValue` class has useful static methods to build Metadata
+#         }
+#     )
+#
+#    return df
+
+
+
+
+# @asset(
+#     name="buurten_trees",
+#     key_prefix="joined",
+#     ins={
+#         "tree_data": AssetIn(key="tree_data"),
+#         "cbs_buurten": AssetIn(key="cbs_buurten"),
+#     },
+#     io_manager_key="database_io_manager",
+#     description="Join tree data to incidents_buurten ",
+# )
+# def buurten_trees(
+#     context: AssetExecutionContext,
+#     cbs_buurten: pl.DataFrame,
+#     tree_data: pl.DataFrame,
+# ) -> pl.DataFrame:
+#     """
+#     Join CBS buurten on Storm incidents on Geometry data
+
+#     :param AssetExecutionContext context: Dagster context
+#     :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
+#     :param pl.DataFrame storm_incidents data: Storm incidents data
+#     :return pl.DataFrame: resulting joined table
+#     """
+#     logger = get_dagster_logger()
+
+#     # Filter out Total Rows (CBS just adds them)
+#     cbs_buurten = cbs_buurten.filter(pl.col("buurtnaam") != " ")
+#     gdf_buurten = convert_to_geodf(cbs_buurten)
+
+#     gdf_tree_data = convert_to_geodf(tree_data)
+#     logger.info(tree_data.head(20))
+
+#     # Do a spatial join
+#     result = gdf_buurten.sjoin(gdf_tree_data)
+
+#     # Convert tot Polars
+#     df = convert_to_polars(result)
+
+#     context.add_output_metadata(
+#         metadata={
+#             "number_of_columns": MetadataValue.int(len(df.columns)),
+#             "preview": MetadataValue.md(
+#                 df.drop("geometry").head().to_pandas().to_markdown()
+#             ),
+#             # The `MetadataValue` class has useful static methods to build Metadata
+#         }
+#     )
+
+#     return df
+
+
+# @asset(
+#     name="buurten_incidents",
+#     key_prefix="joined",
+#     ins={
+#         "cbs_buurten": AssetIn(key="cbs_buurten"),
+#         "storm_incidents": AssetIn(key="cleaned_storm_incidents"),
+#     },
+#     io_manager_key="database_io_manager",
+#     description="Join cbs-buurten on storm incidents",
+# )
+# def buurten_incidents(
+#     context: AssetExecutionContext,
+#     storm_incidents: pl.DataFrame,
+#     cbs_buurten: pl.DataFrame,
+# ) -> pl.DataFrame:
+#     """
+#     Join CBS buurten on Storm incidents
+
+#     :param AssetExecutionContext context: Dagster context
+#     :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
+#     :param pl.DataFrame storm_incidents data: Storm incidents data
+#     :return pl.DataFrame: resulting joined table
+#     """
+#     # logger = get_dagster_logger()
+
+#     # Filter out non `buurtnaam` rows (CBS just adds them)
+#     cbs_buurten = cbs_buurten.filter(pl.col("buurtnaam") != " ")
+#     gdf_buurten = convert_to_geodf(cbs_buurten)
+
+#     # Create a GeoDataFrame from wkb format
+#     gdf_storm_incidents = convert_to_geodf(storm_incidents)
+
+#     result = gdf_buurten.sjoin(gdf_storm_incidents)
+
+#     df = convert_to_polars(result)
+
+#     context.add_output_metadata(
+#         metadata={
+#             "number_of_columns": MetadataValue.int(len(df.columns)),
+#             "preview": MetadataValue.md(
+#                 df.drop("geometry").head().to_pandas().to_markdown()
+#             ),
+#             # The `MetadataValue` class has useful static methods to build Metadata
+#         }
+#     )
+
+#     return df
+
+
+# @asset(
+#     name="buurten_incidents_trees",
+#     key_prefix="joined",
+#     ins={
+#         "buurten_trees": AssetIn(key="aggregated_buurten_trees"),
+#         "buurten_incidents": AssetIn(key="aggregated_buurten_incidents"),
+#     },
+#     io_manager_key="database_io_manager",
+#     description="Join the buurten_trees & buurten_incidents so we have a final buurten dataset",
+# )
+# def buurten_incidents_trees(
+#     context: AssetExecutionContext,
+#     buurten_trees: pl.DataFrame,
+#     buurten_incidents: pl.DataFrame,
+# ) -> pl.DataFrame:
+#     """
+#     Join CBS buurten on Storm incidents
+
+#     :param AssetExecutionContext context: Dagster context
+#     :param pl.DataFrame cbs_buurten: CBS data bout 'buurten'
+#     :param pl.DataFrame storm_incidents data: Storm incidents data
+#     :return pl.DataFrame: resulting joined table
+#     """
+#     # logger = get_dagster_logger()
+
+#     df = buurten_incidents.join(buurten_trees, on="buurtcode")
+
+#     context.add_output_metadata(
+#         metadata={
+#             "number_of_columns": MetadataValue.int(len(df.columns)),
+#             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+#             # The `MetadataValue` class has useful static methods to build Metadata
+#         }
+#     )
+
+#     return df
 
 
 # @asset(

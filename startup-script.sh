@@ -1,6 +1,6 @@
 #!/bin/sh
-poetry update --no-interaction
 poetry install --no-interaction --no-ansi --no-root
+# poetry update --no-interaction
 
 # Install IPython kernel - useful if you're running Jupyter inside the container
 poetry run ipython kernel install --user --name=DSP --display-name="DSP-Storm-Damage-on-Urban-Areas"

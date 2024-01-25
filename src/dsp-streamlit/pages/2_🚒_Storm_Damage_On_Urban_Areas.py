@@ -7,7 +7,7 @@ st.set_page_config(layout="wide")
 
 def main():
     # Path to your DuckDB file
-    db_file_path = "../data_systems_project.duckdb"
+    db_file_path = "../DSP.db"
 
     st.title("DuckDB Tables Viewer")
     conn = connect_to_duckdb(db_file_path)

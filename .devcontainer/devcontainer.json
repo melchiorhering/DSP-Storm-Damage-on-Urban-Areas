@@ -2,7 +2,7 @@
   // For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
   // https://github.com/microsoft/vscode-dev-containers/tree/v0.217.4/containers/go
 
-  "name": "DSP: Workspace",
+  "name": "DSP-Storm-Damage-on-Urban-Areas",
   "service": "workspace",
   "workspaceFolder": "/home/workspaces/DSP-compose",
   "forwardPorts": ["3000:3000", "8501:8501", "5001:5001"],
@@ -20,11 +20,7 @@
   // "overrideCommand": true,
 
   "customizations": {
-    "git.branchProtection": ["main", "master"],
     "settings": {
-      "ruff.path": "/usr/local/bin/ruff",
-      // "ruff.lint.args": ["--config=src/dsp-dagster/pyproject.toml"],
-      "ruff.organizeImports": true,
       "files.insertFinalNewline": true,
       "files.trimTrailingWhitespace": true,
       "files.autoSave": "onFocusChange",
@@ -33,7 +29,6 @@
       "python.analysis.indexing": true,
       "python.analysis.autoImportCompletions": true,
       "python.terminal.activateEnvInCurrentTerminal": true,
-      // "python.defaultInterpreterPath": "/usr/local/bin/python",
       "rewrap.wrappingColumn": 88,
       "[json]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"

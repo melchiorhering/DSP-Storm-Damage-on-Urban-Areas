@@ -15,6 +15,8 @@ from dagster import (
 from pydantic import Field
 from shapely import wkt
 
+from ...util.helpers import *
+
 
 def create_url(endpoint: str) -> str:
     """
@@ -69,85 +71,76 @@ class GrondWater(GemeenteAmsterdamAPI):
     )
 
 
-def convert_to_polars(gdf: gpd.GeoDataFrame) -> pl.DataFrame:
-    """
-    Convert a GeoDataFrame to a Polars DataFrame.
-    """
-    # Efficiently convert geometries to string if needed
-    gdf["geometry"] = gdf["geometry"].apply(
-        wkt.dumps
-    )  # Consider if this step is necessary
-    return pl.from_pandas(pd.DataFrame(gdf))
+
 
 
 async def fetch_data(session, logger, url, params, page):
     """
     Asynchronously fetch data for a specific page.
     """
-    response = await session.get(url, params={**params, "page": page})
-    if response.status_code != 200:
+    try:
+        response = await session.get(url, params={**params, "page": page})
+        response.raise_for_status()
+        logger.info(f"Page {page} data retrieved.")
+        return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error occurred: {e}")
         raise Failure(
-            description=f"Received non-200 status code [{response.status_code}]",
+            description=f"HTTP error for page {page}: {e}",
             metadata={
                 "api_url": MetadataValue.url(str(response.url)),
                 "errored_page": MetadataValue.int(page),
                 "params": MetadataValue.json(params),
             },
         )
-    logger.info(f"[PAGE] {page} | [RETRIEVED]")
-    return response.json()
-
+    except httpx.RequestError as e:
+        logger.error(f"Request error occurred: {e}")
+        raise Failure(
+            description=f"Request error for page {page}: {e}",
+            metadata={
+                "api_url": MetadataValue.url(url),
+                "errored_page": MetadataValue.int(page),
+                "params": MetadataValue.json(params),
+            },
+        )
 
 async def fetch_data_chunk(session, logger, url, params, start_page, end_page):
     """
     Fetch a chunk of pages and aggregate their features.
     """
-    tasks = [
-        fetch_data(session, logger, url, params, page)
-        for page in range(start_page, end_page + 1)
-    ]
-    chunk_results = await asyncio.gather(*tasks)
+    tasks = [fetch_data(session, logger, url, params, page) for page in range(start_page, end_page + 1)]
+    chunk_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Aggregate features from each page's FeatureCollection
     aggregated_features = []
-    for chunk in chunk_results:
-        if chunk.get("type") == "FeatureCollection":
-            aggregated_features.extend(chunk.get("features", []))
+    for result in chunk_results:
+        if isinstance(result, Exception):
+            continue  # Skip failed tasks
+        if result.get("type") == "FeatureCollection":
+            aggregated_features.extend(result.get("features", []))
 
     return aggregated_features
 
-
-async def fetch_all_data(
-    session, logger, url, params, total_pages, initial_data, chunk_size=20, delay=10
-):
+async def fetch_all_data(session, logger, url, params, total_pages, initial_data, chunk_size=20, delay=10):
     """
-    Fetch all pages of data in chunks with a delay between each chunk, starting from the second page.
-    :param initial_data: The data fetched from the first page.
+    Fetch all pages of data in chunks with a delay between each chunk.
     """
-    feature_collection = (
-        initial_data if initial_data.get("type") == "FeatureCollection" else None
-    )
-
-    if not feature_collection:
+    if not initial_data.get("type") == "FeatureCollection":
         raise ValueError("Initial data is not a FeatureCollection.")
-    else:
-        for start_page in range(2, total_pages + 1, chunk_size):  # Start from page 2
-            end_page = min(start_page + chunk_size - 1, total_pages)
-            logger.info(f"Fetching pages {start_page} to {end_page}")
-            data_chunk = await fetch_data_chunk(
-                session, logger, url, params, start_page, end_page
-            )
 
-            # Append features from each chunk to the initial FeatureCollection
-            for chunk in data_chunk:
-                if chunk.get("type") == "FeatureCollection":
-                    feature_collection["features"].extend(chunk.get("features", []))
+    feature_collection = initial_data
 
-            # Wait for a specified delay time before fetching the next chunk
-            if end_page < total_pages:
-                await asyncio.sleep(delay)
+    for start_page in range(2, total_pages + 1, chunk_size):  # Start from page 2
+        end_page = min(start_page + chunk_size - 1, total_pages)
+        logger.info(f"Fetching pages {start_page} to {end_page}")
 
-        return feature_collection
+        data_chunk = await fetch_data_chunk(session, logger, url, params, start_page, end_page)
+        feature_collection["features"].extend(data_chunk)
+
+        if end_page < total_pages:
+            logger.info(f"Waiting for {delay} seconds before next chunk.")
+            await asyncio.sleep(delay)
+
+    return feature_collection
 
 
 @asset(
@@ -167,38 +160,60 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
     }
     logger.info(f"Using {params}")
 
+    logger = get_dagster_logger()
+    params = {"_format": config.fmt, "_count": config.count, "_pageSize": config.pageSize}
+    logger.info(f"Using {params}")
+
     async with httpx.AsyncClient(timeout=460) as session:
-        initial_response = await session.get(config.url, params=params)
-        if initial_response.status_code != 200:
+        try:
+            initial_response = await session.get(config.url, params=params)
+            initial_response.raise_for_status()
+            total_pages = int(initial_response.headers["x-pagination-count"])
+            logger.info(f"Total pages: {total_pages}")
+
+            initial_data = initial_response.json()
+
+            logger.info(initial_data.keys())
+
+            all_data = await fetch_all_data(session, logger, config.url, params, total_pages, initial_data)
+
+            gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:4326")
+
+            df = convert_to_polars(gdf)
+
+            context.add_output_metadata(
+                metadata={
+                    "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+                    "number_of_columns": MetadataValue.int(len(df.columns)),
+                    "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+                }
+            )
+            return df
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error occurred: {e}")
             raise Failure(
-                description=f"Received non-200 status code [{initial_response.status_code}]",
+                description=f"HTTP error during initial request: {e}",
                 metadata={
                     "api_url": MetadataValue.url(str(initial_response.url)),
                     "params": MetadataValue.json(params),
                 },
             )
+        except httpx.RequestError as e:
+            logger.error(f"Request error occurred: {e}")
+            raise Failure(
+                description=f"Request error during initial request: {e}",
+                metadata={
+                    "api_url": MetadataValue.url(config.url),
+                    "params": MetadataValue.json(params),
+                },
+            )
 
-        total_pages = int(initial_response.headers["x-pagination-count"])
-        logger.info(f"Total pages: {total_pages}")
 
-        initial_data = initial_response.json()
-        all_data = await fetch_all_data(
-            session, logger, config.url, params, total_pages, initial_data
-        )
 
-        gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:4326")
 
-        df = convert_to_polars(gdf)
 
-    context.add_output_metadata(
-        metadata={
-            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
-            "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-        }
-    )
 
-    return df
 
 
 @asset(

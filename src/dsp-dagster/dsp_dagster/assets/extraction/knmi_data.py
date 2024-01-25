@@ -4,7 +4,7 @@ from typing import Optional
 
 import httpx
 import polars as pl
-from dagster import AssetExecutionContext, Config, MetadataValue, asset
+from dagster import AssetExecutionContext, Config, MetadataValue, asset, get_dagster_logger
 from pydantic import Field
 
 
@@ -137,17 +137,23 @@ def get_knmi_weather_api(
     all_data = loop.run_until_complete(fetch_data_for_intervals(config, intervals))
 
     combined_df = pl.concat(all_data)
+    combined_df = combined_df.sort(by=["YYYYMMDD", "HH"], descending=True)
+
+    df = df.with_columns(
+        pl.col("YYYYMMDD").cast(pl.Utf8).str.strptime(pl.Date, "%Y%m%d"),
+        pl.col("HH").cast(pl.Int8)
+    )
 
     context.add_output_metadata(
         metadata={
             "describe": MetadataValue.md(
-                combined_df.to_pandas().describe().to_markdown()
+                df.to_pandas().describe().to_markdown()
             ),
-            "number_of_columns": MetadataValue.int(len(combined_df.columns)),
-            "preview": MetadataValue.md(combined_df.head().to_pandas().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
         }
     )
-    return combined_df
+    return df
 
 
 @asset(
@@ -162,7 +168,7 @@ def load_knmi_weather_data_from_txt(
     sorted by datetime.
     """
 
-    # logger = get_dagster_logger()
+    logger = get_dagster_logger()
 
     file_paths = [
         "KNMI_2005010101_2010010124.txt",
@@ -177,7 +183,6 @@ def load_knmi_weather_data_from_txt(
         df = pl.read_csv(
             f"./data/{file}", comment_prefix="#", try_parse_dates=True, has_header=True
         )
-
         # Remove whitespaces and tabs from column names
         df.columns = [col.replace(" ", "").replace("\t", "") for col in df.columns]
         dataframes.append(df)
@@ -187,15 +192,22 @@ def load_knmi_weather_data_from_txt(
 
     # Ensure the datetime column is in the correct format and sort
     # Replace 'datetime_column' with the name of your actual datetime column
-    combined_df = combined_df.sort(by=["YYYYMMDD", "HH"], descending=True)
+    df = combined_df.sort(by=["YYYYMMDD", "HH"], descending=True)
+
+    df = df.with_columns(
+        pl.col("YYYYMMDD").cast(pl.Utf8).str.strptime(pl.Date, "%Y%m%d"),
+        pl.col("HH").cast(pl.Int8)
+    )
 
     context.add_output_metadata(
         metadata={
             "describe": MetadataValue.md(
-                combined_df.to_pandas().describe().to_markdown()
+                df.to_pandas().describe().to_markdown()
             ),
-            "number_of_columns": MetadataValue.int(len(combined_df.columns)),
-            "preview": MetadataValue.md(combined_df.head().to_pandas().to_markdown()),
+            "number_of_columns": MetadataValue.int(len(df.columns)),
+            "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
+            "max_date": MetadataValue.md(df.select(pl.col("YYYYMMDD").max()).to_pandas().to_markdown()),
+            "min_date": MetadataValue.md(df.select(pl.col("YYYYMMDD").min()).to_pandas().to_markdown())
         }
     )
-    return combined_df
+    return df
