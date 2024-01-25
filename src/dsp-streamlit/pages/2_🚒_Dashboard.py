@@ -271,6 +271,7 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             mapbox_style="carto-darkmatter",
             zoom=9.7,
             custom_data=[gdf_service_areas["Verzorgingsgebied"]],
+            labels={"Total Incidents": "Aantal incidenten"}  # Set custom label for the legend
         )
 
 
@@ -286,16 +287,16 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
         # Adjust legend - make it smaller
         fig.update_layout(
             legend=dict(
-                font=dict(size=10),  # Smaller font size
+                font=dict(size=8),  # Smaller font size
                 yanchor="top",
                 y=0.99,
-                xanchor="left",
+                xanchor="center",
                 x=0.01,  # Position the legend close to the left edge
                 itemsizing="constant"  # Ensures symbols in legend remain small
             ),        
             margin={"r": 0, "t": 0, "l": 0, "b": 0}
         )
-
+        
         # Display the figure in Streamlit
         st.plotly_chart(fig, use_container_width=True)
 
@@ -331,6 +332,8 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             mapbox_style="carto-darkmatter",
             zoom=10.2,
             custom_data=[gdf_buurten["Buurt"]],
+            labels={"Total Incidents": "Aantal incidenten"}  # Set custom label for the legend
+
         )
 
         # Adjust the border color for polygons
@@ -388,6 +391,8 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             mapbox_style="carto-darkmatter",
             zoom=10.2,
             custom_data=[gdf_wijken["Wijk"]],
+            labels={"Total Incidents": "Aantal incidenten"}  # Set custom label for the legend
+
         )
 
         # Adjust the border color for polygons
@@ -511,27 +516,23 @@ def display_map_plotly_streamlit(gdf_service_areas, gdf_wijken, gdf_buurten, df_
             # Filter the dataframe for the current damage type
             df_filtered = df_accumulated[(df_accumulated["Damage_Type"] == d_type)]
 
-            # Create a hover text series
-            hover_text = [
-                # "Categorie: {}<br>Prioriteit: {}<br>Duur: {}<br>Coördinaten: ({}, {})".format(
+            hover_text = []
+            for row in df_filtered.itertuples():
+                hover_parts = ["Categorie: {}".format(row.Damage_Type)]
 
-                "Categorie: {}<br>Coördinaten: ({}, {})".format(
-                    type
-                    # , priority
-                    # , duration
-                    , lat, lon
-                )
-                for type
-                # , priority
-                # , duration
-                , lat, lon in zip(
-                    df_filtered["Damage_Type"],
-                    # df_filtered["Incident_Priority"],
-                    # df_filtered["Incident_Duration"],
-                    df_filtered["LAT"],
-                    df_filtered["LON"],
-                )
-            ]
+                # Voeg 'Prioriteit' toe als het bestaat in de dataframe
+                if "Incident_Priority" in df_filtered.columns:
+                    hover_parts.append("Prioriteit: {}".format(row.Incident_Priority))
+
+                # Voeg 'Duur' toe als het bestaat in de dataframe
+                if "Incident_Duration" in df_filtered.columns:
+                    hover_parts.append("Duur: {}".format(row.Incident_Duration))
+
+                # Voeg coördinaten toe
+                hover_parts.append("Coördinaten: ({}, {})".format(row.LAT, row.LON))
+
+                # Combineer de delen tot één hovertekst
+                hover_text.append("<br>".join(hover_parts))
 
             # Get the color for the current damage type
             color = color_map.get(d_type)  # Default to black if not found
@@ -707,12 +708,12 @@ else:
             title="Aantal incidenten per uur",
             title_x=0.35,
             xaxis=dict(
-                title="Hour",
+                title="Uur",
                 tickmode="array",
                 tickvals=list(range(24)),
                 ticktext=[f"{hour}:00" for hour in range(24)],
             ),
-            yaxis=dict(title="Number of Incidents"),
+            yaxis=dict(title="Aantal incidenten"),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             bargap=0.1,
@@ -858,12 +859,12 @@ else:
             title="Aantal incidenten per uur",
             title_x=0.35,
             xaxis=dict(
-                title="Hour",
+                title="Uur",
                 tickmode="array",
                 tickvals=list(range(24)),
                 ticktext=[f"{hour}:00" for hour in range(24)],
             ),
-            yaxis=dict(title="Number of Incidents"),
+            yaxis=dict(title="Aantal incidenten"),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             bargap=0.1,
@@ -1008,12 +1009,12 @@ else:
             title="Aantal incidenten per uur",
             title_x=0.35,
             xaxis=dict(
-                title="Hour",
+                title="Uur",
                 tickmode="array",
                 tickvals=list(range(24)),
                 ticktext=[f"{hour}:00" for hour in range(24)],
             ),
-            yaxis=dict(title="Number of Incidents"),
+            yaxis=dict(title="Aantal incidenten"),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
             bargap=0.1,
@@ -1173,9 +1174,9 @@ else:
     fig_windrose.update_layout(
         title_text="Windrichting en windkracht",
         title_x=0.25,
-        width=410,
-        height=440,
-        margin=dict(l=55, r=30, t=90, b=50),
+        width=420,
+        height=450,
+        margin=dict(l=50, r=0, t=80, b=50),
     )
 
     # Display in Streamlit
