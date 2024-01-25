@@ -1,5 +1,6 @@
 *tmp*/
 *.db
+*.duckdb
 src/dsp-dagster/storage/*
 src/dsp-dagster/data/*
 *mlruns/*
