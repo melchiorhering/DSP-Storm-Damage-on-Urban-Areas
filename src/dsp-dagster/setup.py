@@ -19,6 +19,8 @@ setup(
         "asyncio",
         "aiohttp",
         "httpx",
+        "xgboost",
+        "scikit-learn",
     ],
     extras_require={"dev": ["dagster-webserver", "pytest"]},
 )

@@ -198,13 +198,15 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
     logger.info(gdf.head(10))
     df = convert_to_polars(gdf)
 
+    df = df.filter(pl.col("wijknaam") != " ")
+
     context.add_output_metadata(
         metadata={
             # "metadata": MetadataValue.json(data),
             # "url_used": MetadataValue.text(response.url),
             # "describe": MetadataValue.md(df.describes().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            "preview": MetadataValue.md(df.drop("geometry").head().to_pandas().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
@@ -277,7 +279,7 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
             # "url_used": MetadataValue.text(response.url),
             # "describe": MetadataValue.md(df.describes().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.to_pandas().head().to_markdown()),
+            "preview": MetadataValue.md(df.drop("geometry").head().to_pandas().to_markdown()),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )

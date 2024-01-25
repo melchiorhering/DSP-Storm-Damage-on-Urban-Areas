@@ -8,4 +8,4 @@ extract_data = define_asset_job(
 transform_data = define_asset_job(
     "transform_data", selection=AssetSelection.groups(TRANSFORMATIONS)
 )
-run_models = define_asset_job("run_models", selection=AssetSelection.groups(MODELS))
+modelling = define_asset_job("modelling", selection=AssetSelection.groups(MODELS))
