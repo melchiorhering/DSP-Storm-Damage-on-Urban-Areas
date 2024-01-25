@@ -1058,27 +1058,27 @@ else:
         if 348.75 <= deg or deg <= 11.25:
             return "N"
         elif 11.25 < deg <= 33.75:
-            return "NNE"
+            return "NNO"
         elif 33.75 < deg <= 56.25:
-            return "NE"
+            return "NO"
         elif 56.25 < deg <= 78.75:
-            return "ENE"
+            return "ONO"
         elif 78.75 < deg <= 101.25:
-            return "E"
+            return "O"
         elif 101.25 < deg <= 123.75:
-            return "ESE"
+            return "OZO"
         elif 123.75 < deg <= 146.25:
-            return "SE"
+            return "ZO"
         elif 146.25 < deg <= 168.75:
-            return "SSE"
+            return "ZZO"
         elif 168.75 < deg <= 191.25:
-            return "S"
+            return "Z"
         elif 191.25 < deg <= 213.75:
-            return "SSW"
+            return "ZZW"
         elif 213.75 < deg <= 236.25:
-            return "SW"
+            return "ZW"
         elif 236.25 < deg <= 258.75:
-            return "WSW"
+            return "WZW"
         elif 258.75 < deg <= 281.25:
             return "W"
         elif 281.25 < deg <= 303.75:
@@ -1143,17 +1143,17 @@ else:
         category_orders={
             "Direction": [
                 "N",  # North
-                "NNE",  # North-Northeast
-                "NE",  # Northeast
-                "ENE",  # East-Northeast
-                "E",  # East
-                "ESE",  # East-Southeast
-                "SE",  # Southeast
-                "SSE",  # South-Southeast
-                "S",  # South
-                "SSW",  # South-Southwest
-                "SW",  # Southwest
-                "WSW",  # West-Southwest
+                "NNO",  # North-Northeast
+                "NO",  # Northeast
+                "ONO",  # East-Northeast
+                "O",  # East
+                "OZO",  # East-Southeast
+                "ZO",  # Southeast
+                "ZZO",  # South-Southeast
+                "Z",  # South
+                "ZZW",  # South-Southwest
+                "ZW",  # Southwest
+                "WZW",  # West-Southwest
                 "W",  # West
                 "WNW",  # West-Northwest
                 "NW",  # Northwest
@@ -1178,6 +1178,12 @@ else:
         height=450,
         margin=dict(l=50, r=0, t=80, b=50),
     )
+
+    fig_windrose.update_layout(
+    polar_radialaxis_showline=False,
+    polar_radialaxis_showticklabels=False,
+    polar_radialaxis_ticks=''   
+    )   
 
     # Display in Streamlit
     col5, col6 = st.columns([3, 1])
