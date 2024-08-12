@@ -19,7 +19,7 @@ deployment_name = os.environ.get("DAGSTER_DEPLOYMENT", "local")
 defs = Definitions(
     assets=all_assets,
     resources=resources_by_deployment_name[deployment_name],
-    jobs=[extract_data, transform_data, modelling]
+    jobs=[extract_data, transform_data, modelling],
     # schedules=[core_assets_schedule],
     # sensors=all_sensors,
 )
