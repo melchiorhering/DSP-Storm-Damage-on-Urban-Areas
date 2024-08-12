@@ -206,7 +206,9 @@ def cbs_wijken(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFrame
             # "url_used": MetadataValue.text(response.url),
             # "describe": MetadataValue.md(df.describes().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.drop("geometry").head().to_pandas().to_markdown()),
+            "preview": MetadataValue.md(
+                df.drop("geometry").head().to_pandas().to_markdown()
+            ),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )
@@ -279,7 +281,9 @@ def cbs_buurten(context: AssetExecutionContext, config: PDOK_CBS) -> pl.DataFram
             # "url_used": MetadataValue.text(response.url),
             # "describe": MetadataValue.md(df.describes().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
-            "preview": MetadataValue.md(df.drop("geometry").head().to_pandas().to_markdown()),
+            "preview": MetadataValue.md(
+                df.drop("geometry").head().to_pandas().to_markdown()
+            ),
             # The `MetadataValue` class has useful static methods to build Metadata
         }
     )

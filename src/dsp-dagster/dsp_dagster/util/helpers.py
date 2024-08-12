@@ -3,7 +3,6 @@ import polars as pl
 from shapely import wkt
 
 
-
 def convert_to_geodf(polars_df: pl.DataFrame) -> gpd.GeoDataFrame:
     """
     Convert a Polars DataFrame to a GeoDataFrame using WKB or WKT transformation.

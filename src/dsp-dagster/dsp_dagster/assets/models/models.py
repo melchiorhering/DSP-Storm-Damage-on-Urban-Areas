@@ -1,10 +1,5 @@
 import polars as pl
-from dagster import (
-    AssetExecutionContext,
-    AssetIn,
-    asset,
-    get_dagster_logger,
-)
+from dagster import AssetExecutionContext, AssetIn, asset, get_dagster_logger
 
 
 @asset(

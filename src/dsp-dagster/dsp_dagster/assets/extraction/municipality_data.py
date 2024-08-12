@@ -2,7 +2,6 @@ import asyncio
 
 import geopandas as gpd
 import httpx
-import pandas as pd
 import polars as pl
 from dagster import (
     AssetExecutionContext,
@@ -13,7 +12,6 @@ from dagster import (
     get_dagster_logger,
 )
 from pydantic import Field
-from shapely import wkt
 
 from ...util.helpers import *
 
@@ -71,9 +69,6 @@ class GrondWater(GemeenteAmsterdamAPI):
     )
 
 
-
-
-
 async def fetch_data(session, logger, url, params, page):
     """
     Asynchronously fetch data for a specific page.
@@ -104,11 +99,15 @@ async def fetch_data(session, logger, url, params, page):
             },
         )
 
+
 async def fetch_data_chunk(session, logger, url, params, start_page, end_page):
     """
     Fetch a chunk of pages and aggregate their features.
     """
-    tasks = [fetch_data(session, logger, url, params, page) for page in range(start_page, end_page + 1)]
+    tasks = [
+        fetch_data(session, logger, url, params, page)
+        for page in range(start_page, end_page + 1)
+    ]
     chunk_results = await asyncio.gather(*tasks, return_exceptions=True)
 
     aggregated_features = []
@@ -120,7 +119,10 @@ async def fetch_data_chunk(session, logger, url, params, start_page, end_page):
 
     return aggregated_features
 
-async def fetch_all_data(session, logger, url, params, total_pages, initial_data, chunk_size=20, delay=10):
+
+async def fetch_all_data(
+    session, logger, url, params, total_pages, initial_data, chunk_size=20, delay=10
+):
     """
     Fetch all pages of data in chunks with a delay between each chunk.
     """
@@ -133,7 +135,9 @@ async def fetch_all_data(session, logger, url, params, total_pages, initial_data
         end_page = min(start_page + chunk_size - 1, total_pages)
         logger.info(f"Fetching pages {start_page} to {end_page}")
 
-        data_chunk = await fetch_data_chunk(session, logger, url, params, start_page, end_page)
+        data_chunk = await fetch_data_chunk(
+            session, logger, url, params, start_page, end_page
+        )
         feature_collection["features"].extend(data_chunk)
 
         if end_page < total_pages:
@@ -161,7 +165,11 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
     logger.info(f"Using {params}")
 
     logger = get_dagster_logger()
-    params = {"_format": config.fmt, "_count": config.count, "_pageSize": config.pageSize}
+    params = {
+        "_format": config.fmt,
+        "_count": config.count,
+        "_pageSize": config.pageSize,
+    }
     logger.info(f"Using {params}")
 
     async with httpx.AsyncClient(timeout=460) as session:
@@ -175,7 +183,9 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
 
             logger.info(initial_data.keys())
 
-            all_data = await fetch_all_data(session, logger, config.url, params, total_pages, initial_data)
+            all_data = await fetch_all_data(
+                session, logger, config.url, params, total_pages, initial_data
+            )
 
             gdf = gpd.GeoDataFrame.from_features(all_data, crs="EPSG:4326")
 
@@ -183,7 +193,9 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
 
             context.add_output_metadata(
                 metadata={
-                    "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
+                    "describe": MetadataValue.md(
+                        df.to_pandas().describe().to_markdown()
+                    ),
                     "number_of_columns": MetadataValue.int(len(df.columns)),
                     "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
                 }
@@ -208,12 +220,6 @@ async def tree_data(context: AssetExecutionContext, config: Trees) -> pl.DataFra
                     "params": MetadataValue.json(params),
                 },
             )
-
-
-
-
-
-
 
 
 @asset(

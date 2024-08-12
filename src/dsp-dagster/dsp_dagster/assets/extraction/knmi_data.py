@@ -4,7 +4,13 @@ from typing import Optional
 
 import httpx
 import polars as pl
-from dagster import AssetExecutionContext, Config, MetadataValue, asset, get_dagster_logger
+from dagster import (
+    AssetExecutionContext,
+    Config,
+    MetadataValue,
+    asset,
+    get_dagster_logger,
+)
 from pydantic import Field
 
 
@@ -141,14 +147,12 @@ def get_knmi_weather_api(
 
     df = df.with_columns(
         pl.col("YYYYMMDD").cast(pl.Utf8).str.strptime(pl.Date, "%Y%m%d"),
-        pl.col("HH").cast(pl.Int8)
+        pl.col("HH").cast(pl.Int8),
     )
 
     context.add_output_metadata(
         metadata={
-            "describe": MetadataValue.md(
-                df.to_pandas().describe().to_markdown()
-            ),
+            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
         }
@@ -196,18 +200,20 @@ def load_knmi_weather_data_from_txt(
 
     df = df.with_columns(
         pl.col("YYYYMMDD").cast(pl.Utf8).str.strptime(pl.Date, "%Y%m%d"),
-        pl.col("HH").cast(pl.Int8)
+        pl.col("HH").cast(pl.Int8),
     )
 
     context.add_output_metadata(
         metadata={
-            "describe": MetadataValue.md(
-                df.to_pandas().describe().to_markdown()
-            ),
+            "describe": MetadataValue.md(df.to_pandas().describe().to_markdown()),
             "number_of_columns": MetadataValue.int(len(df.columns)),
             "preview": MetadataValue.md(df.head().to_pandas().to_markdown()),
-            "max_date": MetadataValue.md(df.select(pl.col("YYYYMMDD").max()).to_pandas().to_markdown()),
-            "min_date": MetadataValue.md(df.select(pl.col("YYYYMMDD").min()).to_pandas().to_markdown())
+            "max_date": MetadataValue.md(
+                df.select(pl.col("YYYYMMDD").max()).to_pandas().to_markdown()
+            ),
+            "min_date": MetadataValue.md(
+                df.select(pl.col("YYYYMMDD").min()).to_pandas().to_markdown()
+            ),
         }
     )
     return df
